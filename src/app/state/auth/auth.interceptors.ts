@@ -1,0 +1,52 @@
+import { Injectable } from '@angular/core';
+import {
+  HttpRequest,
+  HttpHandler,
+  HttpEvent,
+  HttpInterceptor,
+  HttpErrorResponse
+} from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { Router } from '@angular/router';
+
+@Injectable()
+export class AuthInterceptor implements HttpInterceptor {
+  constructor(private router: Router) {}
+
+  intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
+    // Get the token from localStorage
+    const userData = localStorage.getItem('userData');
+    let token = '';
+
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        token = user._token || '';
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+
+    // Clone the request and add the authorization header
+    if (token) {
+      request = request.clone({
+        setHeaders: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+    }
+
+    // Pass on the modified request
+    return next.handle(request).pipe(
+      catchError((error: HttpErrorResponse) => {
+        // Handle authentication errors
+        if (error.status === 401) {
+          // Redirect to login page
+          this.router.navigate(['/login']);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+}
