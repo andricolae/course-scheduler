@@ -51,7 +51,7 @@ The application communicates with the School Manager system via the following en
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/course-scheduler.git
+git clone https://github.com/andricolae/course-scheduler.git
 
 # Navigate to project directory
 cd course-scheduler
@@ -78,8 +78,8 @@ export const firebaseConfig = {
 };
 ```
 
-[!CAUTION]
-Never commit your .env or environment.ts file to version control. These files contain sensitive API keys and credentials that should remain private.
+>[!CAUTION]
+>Never commit your .env or environment.ts file to version control. These files contain sensitive API keys and credentials that should remain private.
 
 ## 🏗️ Development
 
