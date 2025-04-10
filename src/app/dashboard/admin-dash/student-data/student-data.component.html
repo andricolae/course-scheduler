@@ -1,0 +1,170 @@
+<div class="bg-white rounded-xl shadow-md p-6 max-w-3xl mx-auto">
+  <app-spinner />
+
+  @if (course$ | async; as course) {
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-semibold text-blue-600">{{ course.name }} - Student Data</h2>
+      <div class="text-sm text-gray-500">
+        <span>{{ course.enrolledStudents?.length || 0 }} students enrolled</span>
+      </div>
+    </div>
+
+    <div class="border-b mb-4">
+      <div class="flex">
+        <button
+          (click)="activeTab = 'grades'"
+          class="px-4 py-2 border-b-2 transition-colors"
+          [class.border-blue-500]="activeTab === 'grades'"
+          [class.text-blue-600]="activeTab === 'grades'"
+          [class.border-transparent]="activeTab !== 'grades'"
+          [class.text-gray-500]="activeTab !== 'grades'">
+          Grades
+        </button>
+        <button
+          (click)="activeTab = 'attendance'"
+          class="px-4 py-2 border-b-2 transition-colors"
+          [class.border-blue-500]="activeTab === 'attendance'"
+          [class.text-blue-600]="activeTab === 'attendance'"
+          [class.border-transparent]="activeTab !== 'attendance'"
+          [class.text-gray-500]="activeTab !== 'attendance'">
+          Attendance
+        </button>
+      </div>
+    </div>
+
+    @if (students$ | async; as students) {
+      @if (students.length === 0) {
+        <div class="text-center py-8">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <p class="text-gray-500">No students enrolled in this course yet.</p>
+        </div>
+      } @else {
+        @if (activeTab === 'grades') {
+          <div class="space-y-6">
+            @for (student of students; track student.id) {
+              <div class="bg-gray-50 rounded-lg p-4 shadow-sm hover:shadow transition-shadow">
+                <div class="flex justify-between mb-2">
+                  <h3 class="font-medium">{{ student.fullName }}</h3>
+                  @if (student.grades.length > 0) {
+                    <span class="text-sm"
+                      [class.text-green-600]="calculateMeanGrade(student.grades) >= 9"
+                      [class.text-yellow-600]="calculateMeanGrade(student.grades) >= 7 && calculateMeanGrade(student.grades) < 9"
+                      [class.text-red-600]="calculateMeanGrade(student.grades) < 7">
+                      Average: {{ calculateMeanGrade(student.grades) }}
+                    </span>
+                  } @else {
+                    <span class="text-sm text-gray-500">No grades yet</span>
+                  }
+                </div>
+
+                @if (student.grades.length === 0) {
+                  <p class="text-sm text-gray-500 italic">No grades recorded for this student.</p>
+                } @else {
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="border-b">
+                          <th class="text-left py-2 pr-4">Assessment</th>
+                          <th class="text-left py-2 pr-4">Date</th>
+                          <th class="text-right py-2">Grade</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (grade of student.grades; track grade.id) {
+                          <tr class="border-b last:border-0">
+                            <td class="py-2 pr-4">{{ grade.title }}</td>
+                            <td class="py-2 pr-4">{{ formatDate(grade.date) }}</td>
+                            <td class="py-2 text-right"
+                              [class.text-green-600]="grade.value >= 9"
+                              [class.text-yellow-600]="grade.value >= 7 && grade.value < 9"
+                              [class.text-red-600]="grade.value < 7">
+                              {{ grade.value }}
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        @if (activeTab === 'attendance') {
+          <div class="space-y-6">
+            @for (student of students; track student.id) {
+              <div class="bg-gray-50 rounded-lg p-4 shadow-sm hover:shadow transition-shadow">
+                <div class="flex justify-between mb-2">
+                  <h3 class="font-medium">{{ student.fullName }}</h3>
+                  <div class="text-sm">
+                    <span
+                      [class.text-green-600]="student.attendanceRate >= 80"
+                      [class.text-yellow-600]="student.attendanceRate >= 60 && student.attendanceRate < 80"
+                      [class.text-red-600]="student.attendanceRate < 60">
+                      Attendance: {{ student.attendanceRate }}%
+                    </span>
+                  </div>
+                </div>
+
+                <div class="mb-4 flex justify-between text-sm text-gray-600">
+                  <div>Sessions attended: <span class="font-medium">{{ student.attendanceCount }}/{{ student.sessionsCount }}</span></div>
+                </div>
+
+                @if (student.attendanceDetails.length === 0) {
+                  <p class="text-sm text-gray-500 italic">No sessions scheduled for this course.</p>
+                } @else {
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="border-b">
+                          <th class="text-left py-2 pr-4">Date</th>
+                          <th class="text-left py-2 pr-4">Time</th>
+                          <th class="text-right py-2">Attendance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (entry of student.attendanceDetails; track entry.session.id) {
+                          <tr class="border-b last:border-0">
+                            <td class="py-2 pr-4">{{ formatDate(entry.session.date) }}</td>
+                            <td class="py-2 pr-4">{{ entry.session.startTime }} - {{ entry.session.endTime }}</td>
+                            <td class="py-2 text-right">
+                              <span
+                                class="px-2 py-1 rounded text-xs font-medium"
+                                [class.bg-green-100]="entry.present"
+                                [class.text-green-800]="entry.present"
+                                [class.bg-red-100]="!entry.present"
+                                [class.text-red-800]="!entry.present">
+                                {{ entry.present ? 'Present' : 'Absent' }}
+                              </span>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+    } @else {
+      <div class="text-center py-8">
+        <div class="animate-pulse flex space-x-4 justify-center">
+          <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+        </div>
+        <p class="text-gray-500 mt-4">Loading student data...</p>
+      </div>
+    }
+  } @else {
+    <div class="text-center py-8">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p class="text-gray-500">Course not found</p>
+    </div>
+  }
+</div>

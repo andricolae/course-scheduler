@@ -1,0 +1,214 @@
+<div class="min-h-screen bg-gray-100">
+  <app-spinner />
+
+  <div class="p-3 bg-yellow-500 text-white font-semibold text-lg md:text-center">
+    Student Dashboard
+  </div>
+
+
+  <div class="flex items-center justify-between p-5">
+    <h1 class="text-3xl font-bold text-yellow-600">
+      Hello, {{ loggedUser.fullName }}
+    </h1>
+    <button
+      (click)="openEnrollmentModal()"
+      class="bg-yellow-500 text-blue-950 font-semibold hover:bg-yellow-600 px-3 py-1 rounded-lg text-lg transition"
+    >
+      Available Courses
+    </button>
+  </div>
+
+  @if (enrolledCourses.length === 0) {
+    <div class="flex flex-col items-center justify-center p-10 text-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-yellow-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+      </svg>
+      <h2 class="text-xl font-semibold text-gray-700 mb-2">No Courses Enrolled</h2>
+      <p class="text-gray-500 max-w-md mb-6">You haven't enrolled in any courses yet. Click the "Enroll" button to browse available courses and start your learning journey!</p>
+      <button
+        (click)="openEnrollmentModal()"
+        class="bg-yellow-500 hover:bg-yellow-600 text-blue-950 font-medium px-4 py-2 rounded-lg transition"
+      >
+        Browse Courses
+      </button>
+    </div>
+  } @else {
+    <div class="px-4">
+      <app-weekly-schedule [courses]="enrolledCourses" viewType="student"></app-weekly-schedule>
+    </div>
+
+    <div class="space-y-4 p-4">
+      @for (course of enrolledCourses; track course.id) {
+        <div
+          class="bg-white rounded-2xl shadow p-4 transition-all duration-300"
+          [class.pb-6]="selectedCourse === course.name"
+        >
+          <div class="flex justify-between items-center">
+            <div>
+              <p class="text-lg font-semibold">{{ course.name }}</p>
+              <p class="text-sm text-gray-500">
+                Mean Grade:
+                <span class="font-medium" [class.text-green-600]="calculateMeanGrade(course.grades) >= 9"
+                  [class.text-yellow-600]="calculateMeanGrade(course.grades) >= 7 && calculateMeanGrade(course.grades) < 9"
+                  [class.text-red-600]="calculateMeanGrade(course.grades) < 7">
+                  {{ course.grades.length ? calculateMeanGrade(course.grades) : 'Not graded yet' }}
+                </span>
+              </p>
+            </div>
+            <button
+              class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg text-lg transition"
+              (click)="toggleView(course.name)"
+            >
+              {{ selectedCourse === course.name ? 'Close' : 'View' }}
+            </button>
+          </div>
+
+          @if (selectedCourse === course.name) {
+            <div class="mt-4 border-t pt-4 text-gray-600 text-sm transition-opacity duration-300">
+              <p><span class="font-medium">Teacher:</span> {{ course.teacher }}</p>
+              <p><span class="font-medium">Schedule:</span> {{ course.schedule }}</p>
+
+              <div class="mt-4 border-b">
+                <ul class="flex">
+                  <li class="mr-2">
+                    <button
+                      (click)="activeTab = 'grades'"
+                      class="inline-block py-2 px-4 transition duration-200 border-b-2"
+                      [ngClass]="{
+                        'border-yellow-500 text-gray-800 font-semibold': activeTab === 'grades',
+                        'border-transparent text-gray-600 hover:text-yellow-600 hover:border-yellow-400': activeTab !== 'grades'
+                      }"
+                    >
+                      Grades
+                    </button>
+                  </li>
+                  <li class="mr-2">
+                    <button
+                      (click)="activeTab = 'attendance'"
+                      class="inline-block py-2 px-4 transition duration-200 border-b-2"
+                      [ngClass]="{
+                        'border-yellow-500 text-gray-800 font-semibold': activeTab === 'attendance',
+                        'border-transparent text-gray-600 hover:text-yellow-600 hover:border-yellow-400': activeTab !== 'attendance'
+                      }"
+                    >
+                      Attendance
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              @if (activeTab === 'grades') {
+                <div id="grades" class="mt-3">
+                  <h4 class="font-medium text-base mb-2">Grades</h4>
+
+                  @if (course.grades.length === 0) {
+                    <p class="italic text-gray-500">No grades available yet.</p>
+                  } @else {
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="grid grid-cols-3 font-medium text-gray-700 mb-2 border-b pb-1">
+                        <span>Assessment</span>
+                        <span>Grade</span>
+                        <span>Date</span>
+                      </div>
+
+                      @for (grade of course.grades; track grade.title) {
+                        <div class="grid grid-cols-3 py-1 border-b border-gray-100 last:border-0">
+                          <span>{{ grade.title }}</span>
+                          <span [class.text-green-600]="grade.value >= 9"
+                                [class.text-yellow-600]="grade.value >= 6 && grade.value < 9"
+                                [class.text-red-600]="grade.value < 6">
+                            {{ grade.value }}
+                          </span>
+                          <span>{{ grade.date | date:'MMM d, y' }}</span>
+                        </div>
+                      }
+
+                      <div class="grid grid-cols-3 mt-2 pt-2 border-t font-medium">
+                        <span>Mean Grade</span>
+                        <span [class.text-green-600]="calculateMeanGrade(course.grades) >= 9"
+                              [class.text-yellow-600]="calculateMeanGrade(course.grades) >= 7 && calculateMeanGrade(course.grades) < 9"
+                              [class.text-red-600]="calculateMeanGrade(course.grades) < 7">
+                          {{ calculateMeanGrade(course.grades) }}
+                        </span>
+                        <span></span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (activeTab === 'attendance') {
+                <div id="attendance" class="mt-5">
+                  <h4 class="font-medium text-base mb-2">Class Attendance</h4>
+
+                  <div class="bg-gray-50 rounded-lg p-3">
+                    <div class="grid grid-cols-4 font-medium text-gray-700 mb-2 border-b pb-1">
+                      <span>Date</span>
+                      <span>Time</span>
+                      <span>Status</span>
+                      <span>Action</span>
+                    </div>
+
+                    @for (session of course.sessions; track session.id) {
+                      <div class="grid grid-cols-4 py-2 border-b border-gray-100 last:border-0 items-center">
+                        <span>{{ formatDate(session.date) }}</span>
+                        <span>{{ session.startTime }} - {{ session.endTime }}</span>
+                        <span>
+                          <span class="px-2 py-1 rounded-full text-xs font-medium" [class]="getSessionStatusClass(session)">
+                            {{ getSessionStatus(session) }}
+                          </span>
+                        </span>
+                        <span>
+                          @if (canJoinSession(session) && !session.attended) {
+                            <button
+                              (click)="markAttendance(course.id, session.id)"
+                              class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition">
+                              Join Class
+                            </button>
+                          } @else {
+                            <span class="text-gray-400 text-xs">
+                              {{ session.attended ? 'Marked present' : (getSessionStatus(session) === 'Absent' ? 'Marked absent' : 'Not available') }}
+                            </span>
+                          }
+                        </span>
+                      </div>
+                    }
+
+                    <div class="mt-3 pt-3 border-t">
+                      <div class="flex justify-between text-sm">
+                        <span>
+                          <span class="font-medium">Total Classes:</span> {{ course.sessions.length }}
+                        </span>
+                        <span>
+                          <span class="font-medium">Present:</span>
+                          {{ getAttendanceCount(course) }}
+                        </span>
+                        <span>
+                          <span class="font-medium">Absent:</span>
+                          {{ getAbsenceCount(course) }}
+                        </span>
+                        <span>
+                          <span class="font-medium">Attendance Rate:</span>
+                          {{ getAttendanceRate(course) }}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (isEnrollmentModalOpen) {
+<app-course-enrollment
+  [studentId]="loggedUser.id!"
+  [enrolledCourseIds]="enrolledCourseIds"
+  (closeModal)="closeEnrollmentModal()"
+  (enrollmentChanged)="onEnrollmentChanged($event)">
+</app-course-enrollment>
+}

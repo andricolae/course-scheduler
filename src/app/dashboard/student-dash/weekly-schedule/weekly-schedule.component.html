@@ -1,0 +1,51 @@
+<div class="bg-white rounded-2xl shadow-md p-4 mb-6">
+  <h2 class="text-lg font-semibold mb-3"
+      [class.text-yellow-600]="viewType === 'student'"
+      [class.text-green-600]="viewType === 'teacher'">
+    {{ viewType === 'teacher' ? 'Teaching Schedule' : 'Weekly Schedule' }}
+  </h2>
+
+  <div class="grid grid-cols-7 gap-2">
+    @for (day of weekDays; track day.date) {
+      <div class="text-center"
+          [class.bg-yellow-50]="viewType === 'student' && day.isToday"
+          [class.bg-green-50]="viewType === 'teacher' && day.isToday"
+          [class.rounded-lg]="day.isToday">
+        <div class="mb-1">
+          <div class="font-medium text-gray-700">{{ day.dayName }}</div>
+          <div class="inline-block rounded-full w-7 h-7 flex items-center justify-center"
+              [class.bg-yellow-500]="viewType === 'student' && day.isToday"
+              [class.bg-green-500]="viewType === 'teacher' && day.isToday"
+              [class.text-white]="day.isToday">
+            {{ day.dayNumber }}
+          </div>
+        </div>
+
+        @if (day.sessions.length === 0) {
+          <div class="text-gray-400 text-xs py-2">No Classes</div>
+        } @else {
+          <div class="space-y-2 mt-2">
+            @for (session of day.sessions; track session.id) {
+              <div class="rounded-lg p-2 text-left text-xs shadow-sm"
+                  [class.bg-yellow-100]="viewType === 'student'"
+                  [class.bg-green-100]="viewType === 'teacher'">
+                <div class="font-medium"
+                    [class.text-yellow-800]="viewType === 'student'"
+                    [class.text-green-800]="viewType === 'teacher'">
+                  {{ session.courseName }}
+                </div>
+                <div class="text-gray-600">{{ formatTimeRange(session.startTime, session.endTime) }}</div>
+                @if (viewType === 'student' && session.teacherName) {
+                  <div class="text-gray-600 truncate">{{ session.teacherName }}</div>
+                }
+                @if (viewType === 'teacher' && session.studentCount !== undefined) {
+                  <div class="text-gray-600">{{ session.studentCount }} students</div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,322 @@
+<div class="min-h-screen bg-gray-100">
+  <app-spinner />
+  <app-confirmation-dialog #dialog />
+
+  @if (showStudentData && selectedCourseId) {
+    <div class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+      <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto mx-4">
+        <div class="p-4 flex justify-between items-center border-b">
+          <h3 class="text-lg font-semibold">Student Data</h3>
+          <button
+            (click)="closeStudentData()"
+            class="text-gray-500 hover:text-gray-700"
+            aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-4">
+          <app-student-data [courseId]="selectedCourseId"></app-student-data>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="bg-blue-400 text-white p-4 text-lg font-semibold text-center">
+    Admin Dashboard
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4">
+    <div class="bg-white rounded-2xl shadow p-4 text-center">
+      <p class="text-gray-500">Teachers</p>
+      <p class="text-2xl font-bold">{{ teacherCount }}</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 text-center">
+      <p class="text-gray-500">Students</p>
+      <p class="text-2xl font-bold">{{ studentCount }}</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 text-center">
+      <p class="text-gray-500">Courses</p>
+      <p class="text-2xl font-bold">{{ courseCount }}</p>
+    </div>
+  </div>
+
+  <div class="p-4 space-y-4">
+    <div class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-semibold mb-4 text-blue-600">User Management</h2>
+
+      @if (editingUserId !== null) {
+        <form (ngSubmit)="updateUser()" class="grid gap-4 sm:grid-cols-2 mb-4">
+          <input
+            [(ngModel)]="newUser.fullName"
+            name="userName"
+            placeholder="Full Name"
+            class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+            required
+          />
+          <select
+            [(ngModel)]="newUser.role"
+            name="userRole"
+            class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+            required
+          >
+            <option value="" disabled selected>Select Role</option>
+            <option value="Teacher">Teacher</option>
+            <option value="Student">Student</option>
+          </select>
+          <button
+            type="submit"
+            class="sm:col-span-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-medium transition"
+          >
+            Update User
+          </button>
+        </form>
+      }
+
+      <ul class="space-y-2">
+        @for (user of users$ | async; track user.id) {
+          <li class="bg-gray-50 rounded-lg p-3 flex justify-between items-center shadow">
+            <span>
+              <strong>{{ user.fullName }}</strong>
+              <span class="text-sm text-gray-500"> — {{ user.role }}</span>
+            </span>
+            <div class="flex gap-2 items-center">
+              <button
+              (click)="editUser(user)"
+                class="text-blue-600 hover:text-blue-800 transition"
+                title="Update course"
+              >
+                ✏️
+              </button>
+              <button
+              (click)="deleteUser(user.id!)"
+                class="text-red-500 hover:text-red-600 text-lg"
+                title="Delete user"
+              >
+                ✖
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+
+  <div class="p-4 space-y-4">
+    <div class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-semibold mb-4 text-blue-600">Course Management</h2>
+
+      <form (ngSubmit)="addCourse()" class="grid gap-4 sm:grid-cols-3 mb-4">
+        <input
+          [(ngModel)]="newCourse.name"
+          name="courseName"
+          placeholder="Course Name"
+          class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+          required
+        />
+        <select
+          [(ngModel)]="newCourse.teacherId"
+          name="courseTeacherId"
+          class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+          required
+        >
+          <option value="" disabled selected>Select Teacher</option>
+          @for (teacher of teachers; track teacher.id) {
+            <option [value]="teacher.id">{{ teacher.fullName }}</option>
+          }
+        </select>
+        <input
+          [(ngModel)]="newCourse.schedule"
+          name="courseSchedule"
+          placeholder="Day & Time (e.g. Mon & Wed 10:00)"
+          class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+          required
+        />
+
+        @if (editingCourseId) {
+          <div class="sm:col-span-3 border rounded-lg p-3">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="font-semibold">Course Sessions</h3>
+              <button
+                type="button"
+                (click)="openAddSessionModal(newCourse)"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition"
+              >
+                Add Session
+              </button>
+            </div>
+
+            @if (newCourse.sessions && newCourse.sessions.length > 0) {
+              <div class="max-h-48 overflow-y-auto">
+                <table class="min-w-full">
+                  <thead>
+                    <tr class="bg-gray-50">
+                      <th class="py-2 px-3 text-left">Date</th>
+                      <th class="py-2 px-3 text-left">Time</th>
+                      <th class="py-2 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (session of newCourse.sessions; track session.id; let i = $index) {
+                      <tr class="border-b">
+                        <td class="py-2 px-3">{{ formatDate(session.date) }}</td>
+                        <td class="py-2 px-3">{{ session.startTime }}-{{ session.endTime }}</td>
+                        <td class="py-2 px-3 flex justify-center gap-2">
+                          <button
+                            type="button"
+                            (click)="editSession(newCourse, i)"
+                            class="text-blue-600 hover:text-blue-800"
+                            title="Edit session"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            (click)="deleteSession(i)"
+                            class="text-red-500 hover:text-red-700"
+                            title="Delete session"
+                          >
+                            ✖
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="text-gray-500 text-sm italic">No sessions added yet.</p>
+            }
+          </div>
+        }
+
+        <button
+          type="submit"
+          class="sm:col-span-3 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-medium transition"
+        >
+          {{ editingCourseId ? 'Update Course' : 'Add Course' }}
+        </button>
+      </form>
+
+      <ul class="space-y-2">
+        @for (course of courses$ | async; track course.id) {
+          <li class="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between w-full">
+              <div class="flex flex-col text-left">
+                <span class="font-semibold text-gray-800">{{ course.name }}</span>
+                <span class="text-sm text-gray-500">{{ course.teacher }}</span>
+                <span class="text-sm text-gray-500">{{ course.schedule }}</span>
+                <span class="text-xs text-gray-500 mt-1">
+                  {{ course.sessions?.length || 0 }} sessions |
+                  {{ course.enrolledStudents?.length || 0 }} students enrolled
+                </span>
+              </div>
+              <div class="flex gap-2 items-center ml-auto">
+                <button
+                  (click)="viewStudentData(course)"
+                  class="text-blue-600 hover:text-blue-800 transition"
+                  title="View Student Data"
+                >
+                  🧑🏽‍🎓
+                </button>
+
+                @if (course.sessions && course.sessions.length > 0) {
+                  <details class="relative">
+                    <summary
+                      class="cursor-pointer text-blue-600 hover:text-blue-800 transition px-2 py-1 rounded-md flex items-center"
+                      title="View Sessions"
+                    >
+                      📅
+                    </summary>
+                    <div
+                      class="absolute bg-white shadow-md rounded-lg p-2 mt-1 w-48 border border-gray-200 text-sm right-0"
+                    >
+                      @for (session of course.sessions; track session.id) {
+                        <div class="text-gray-600 flex justify-between">
+                          <span>{{ formatDate(session.date) }}</span>
+                          <span>{{ session.startTime }}-{{ session.endTime }}</span>
+                        </div>
+                      }
+                    </div>
+                  </details>
+                }
+
+                <button
+                  (click)="editCourse(course)"
+                  class="text-blue-600 hover:text-blue-800 transition"
+                  title="Update course"
+                >
+                  ✏️
+                </button>
+                <button
+                  (click)="deleteCourse(course.id!)"
+                  class="text-red-500 hover:text-red-700 transition"
+                  title="Delete course"
+                >
+                  ✖
+                </button>
+              </div>
+
+            </div>
+
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+</div>
+
+@if (showSessionModal) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">{{ editingSessionIndex === -1 ? 'Add' : 'Edit' }} Session</h3>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input
+            type="date"
+            [(ngModel)]="editingSession.date"
+            class="w-full p-2 border rounded-lg"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+            <input
+              type="time"
+              [(ngModel)]="editingSession.startTime"
+              class="w-full p-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+            <input
+              type="time"
+              [(ngModel)]="editingSession.endTime"
+              class="w-full p-2 border rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button
+          type="button"
+          (click)="closeSessionModal()"
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="saveSession()"
+          class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,143 @@
+<!-- src/app/scheduler/scheduler.component.html -->
+<div class="min-h-screen bg-gray-100">
+  <app-spinner />
+
+  <div class="bg-blue-400 text-white p-4 text-lg font-semibold text-center">
+    Course Scheduler
+  </div>
+
+  <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- Pending Courses Panel -->
+    <div class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-semibold mb-4 text-blue-600">Pending Courses</h2>
+
+      @if (pendingCourses.length === 0) {
+        <p class="text-gray-500 italic">No pending courses to schedule.</p>
+      } @else {
+        <ul class="space-y-3">
+          @for (course of pendingCourses; track course.id) {
+            <li
+              class="bg-gray-50 rounded-lg p-3 cursor-pointer border-l-4 hover:shadow-md transition-shadow"
+              [class.border-blue-500]="selectedCourse?.id === course.id"
+              [class.border-transparent]="selectedCourse?.id !== course.id"
+              (click)="selectCourse(course)">
+              <div class="font-medium">{{ course.name }}</div>
+              <div class="text-sm text-gray-600">Teacher: {{ course.teacher }}</div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <!-- Calendar Panel -->
+    <div class="bg-white rounded-2xl shadow p-6 md:col-span-2">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-blue-600">
+          @if (selectedCourse) {
+            Schedule: {{ selectedCourse.name }}
+          } @else {
+            Course Calendar
+          }
+        </h2>
+
+        @if (selectedCourse) {
+          <button
+            (click)="openAddSessionModal()"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition">
+            Add Session
+          </button>
+        }
+      </div>
+
+      @if (!selectedCourse) {
+        <div class="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+          <p class="text-gray-500">Select a course to schedule sessions</p>
+        </div>
+      } @else {
+        <!-- Simple calendar view - will be enhanced with FullCalendar later -->
+        <div class="border rounded-lg overflow-hidden">
+          <div class="grid grid-cols-7 gap-0 text-center font-medium bg-gray-100">
+            <div class="p-2">Sun</div>
+            <div class="p-2">Mon</div>
+            <div class="p-2">Tue</div>
+            <div class="p-2">Wed</div>
+            <div class="p-2">Thu</div>
+            <div class="p-2">Fri</div>
+            <div class="p-2">Sat</div>
+          </div>
+
+          <div class="p-4 text-center">
+            @if (!selectedCourse.sessions || selectedCourse.sessions.length === 0) {
+              <p class="text-gray-500 p-6">No sessions scheduled yet. Click "Add Session" to begin.</p>
+            } @else {
+              <div class="space-y-2">
+                @for (session of selectedCourse.sessions; track session.id) {
+                  <div class="bg-blue-100 text-blue-800 p-2 rounded-lg text-sm">
+                    <div class="font-medium">{{ formatDate(session.date) }}</div>
+                    <div>{{ session.startTime }} - {{ session.endTime }}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Session Modal -->
+@if (isAddSessionModalOpen) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">Add Session</h3>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input
+            type="date"
+            [(ngModel)]="newSession.date"
+            class="w-full p-2 border rounded-lg"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+            <input
+              type="time"
+              [(ngModel)]="newSession.startTime"
+              class="w-full p-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+            <input
+              type="time"
+              [(ngModel)]="newSession.endTime"
+              class="w-full p-2 border rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button
+          type="button"
+          (click)="closeAddSessionModal()"
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="saveSession()"
+          class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+}

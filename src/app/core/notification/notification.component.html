@@ -1,0 +1,13 @@
+@if (visible()) {
+  <div
+      class="fixed top-20 right-4 max-w-xs w-full rounded-xl p-4 text-white shadow-lg transition-opacity duration-300 z-50"
+      [ngClass]="{
+        'bg-red-500 border-l-4 border-red-700': type() === 'alert',
+        'bg-orange-500 border-l-4 border-orange-700': type() === 'notification',
+        'bg-green-500 border-l-4 border-green-700': type() === 'success'
+      }"
+    >
+      <p class="text-sm font-medium">{{ message() }}</p>
+    </div>
+}
+
