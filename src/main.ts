@@ -11,10 +11,10 @@ import { provideStore } from '@ngrx/store';
 import { provideEffects } from '@ngrx/effects';
 import { CoursesEffects } from './app/state/courses/course.effects';
 import { coursesReducer } from './app/state/courses/course.reducer';
-import { UsersEffects } from './app/state/users/user.effects';
-import { usersReducer } from './app/state/users/user.reducer';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { isDevMode } from '@angular/core';
+import { AuthEffects } from './app/state/auth/auth.effects';
+import { authReducer } from './app/state/auth/auth.reducer';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -24,10 +24,10 @@ bootstrapApplication(AppComponent, {
     provideFirestore(() => getFirestore()),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideClientHydration(withEventReplay()),
-    provideStore({ courses: coursesReducer, users: usersReducer}),
+    provideStore({ courses: coursesReducer, auth: authReducer}),
     provideEffects([
       CoursesEffects,
-      UsersEffects
+      AuthEffects
     ]),
     provideStoreDevtools({
       maxAge: 25,

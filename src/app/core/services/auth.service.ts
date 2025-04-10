@@ -202,7 +202,7 @@ export class AuthService {
         userDataObj.id,
         userDataObj._token,
         new Date(userDataObj._tokenExpirationDate),
-        userDataObj.roles ?? []
+        userDataObj.role ?? []
       );
       if (loadedUser.token) {
         this.user.next(loadedUser);

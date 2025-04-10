@@ -21,13 +21,9 @@ export class NavbarComponent {
 
   ngOnInit() {
     this.userSub = this.authService.user.subscribe(user => {
-      console.log('Auth service user value:', user);
       this.isAuthenticated = !!user;
       this.userRole = user?.role ?? null;
       this.isAdmin = user?.role === 'Admin';
-
-      console.log('Is authenticated:', this.isAuthenticated);
-      console.log('Is admin:', this.isAdmin);
     });
   }
 

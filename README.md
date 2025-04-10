@@ -1,145 +1,105 @@
-# School Manager App 🏫
+# Course Scheduler
 
-[![Deployment Status](https://img.shields.io/badge/deployment-active-brightgreen)](https://school-mngr.vercel.app/)
+[![Deployment Status](https://img.shields.io/badge/deployment-active-brightgreen)](https://course-scheduler-ntt.vercel.app/)
 [![Angular](https://img.shields.io/badge/Angular-19-DD0031)](https://angular.io/)
 [![Firebase](https://img.shields.io/badge/Firebase-Integrated-FFA000)](https://firebase.google.com/)
 
+An admin-focused Angular 19 application for scheduling course sessions across an educational institution.
+
 ## 🔍 Overview
 
-The School Manager is an Angular application developed to streamline educational institution management processes. This tool enables efficient student registration, attendance tracking, grade management, and communication between teachers, students, and parents.
+The Course Scheduler is a specialized tool designed exclusively for administrators to manage and schedule course sessions. It works in tandem with the main School Manager application, focusing solely on the scheduling aspect to provide a more efficient workflow for administrators.
 
 ## ✨ Features
 
-* **Student Management**: Register and manage student information with an intuitive interface
-* **Attendance Tracking**: Record and monitor student attendance *(coming in V3)*
-* **Grade Management**: Enter, calculate, and analyze student grades
-* **Communication Portal**: Connect teachers, students, and parents *(coming in V3)*
-* **Reports**: Generate detailed academic reports across various time periods *(coming in V2)*
-* **Export Options**: Download reports in multiple formats (PDF, CSV, Excel) *(coming in V2)* 
+* **Admin-Only Access** : Secure authentication with role-based access control
+* **Calendar-Based Scheduling** : Visual interface for planning course sessions
+* **Conflict Prevention** : Automatic detection of scheduling conflicts
+* **Seamless Integration** : Works with the main School Manager application via API
 
-## 🚀 Getting Started
+## 🚀 Technical Stack
+
+* **Angular 19** : Using standalone components architecture
+* **TailwindCSS** : For responsive and consistent design
+* **NgRx** : State management for predictable data flow
+* **Firebase** : Authentication and data storage
+
+## 📋 Workflow
+
+1. Admin logs into the Course Scheduler application
+2. System displays courses pending scheduling
+3. Admin uses the calendar interface to schedule sessions
+4. System checks for conflicts with existing schedules
+5. Admin saves the schedule
+6. Updated schedule is sent back to the main system via API
+
+## 🛠️ API Endpoints
+
+The application communicates with the School Manager system via the following endpoints:
+
+* `GET /pending-schedule`: Retrieves courses that need scheduling
+* `POST /submit-schedule`: Sends completed schedule back to the main system
+
+## 💻 Getting Started
 
 ### Prerequisites
 
-* Node.js (v20.0 or higher)
-* Angular CLI (v19.0 or higher)
-* npm (v10.0 or higher)
-* Firebase account
+* Node.js (v18 or higher)
+* Angular CLI (v19)
 
-## 🔥 Firebase Configuration
+### Installation
 
-This project uses Firebase services and requires proper configuration via environment variables. 
-
-### 📋 Prerequisites:
-
-1. You need a Firebase account. If you don't have one, sign up at [firebase.google.com](https://firebase.google.com/).
-2. Create a new Firebase project or use an existing one.
-3. Configure the following services in your Firebase project:
-   * Firebase Authentication
-   * Cloud Firestore
-   * Google Analytics (optional, but required for the measurement ID)
-
-> [!NOTE]
-> All these services must be properly configured before the application can function correctly.
-
-### 🔑 Getting your Firebase Configuration Keys:
-
-1. Go to the [Firebase Console](https://console.firebase.google.com/)
-2. Select your project
-3. Click on the gear icon (⚙️) next to "Project Overview" to access Project settings
-4. Scroll down to "Your apps" section and select your web app (or create one by clicking the web icon </> if you haven't added one yet)
-5. Under the "SDK setup and configuration" section, you'll find your Firebase configuration object which contains all the required keys
-6. For Google Vision API and Gemini API keys, you'll need to enable these services in the Google Cloud Console associated with your Firebase project
-
-### 🛠️ Additional Firebase Setup:
-
-1. **Firebase Authentication**: Enable the authentication methods you plan to use (Email/Password, Google, etc.)
-2. **Cloud Firestore**: Create a new database and set up appropriate security rules
-
-> [!TIP]
-> Consider using Firebase's development and production environments to separate your testing from live data.
-
-## 💻 Installation
-
-### Clone the repository:
 ```bash
-git clone https://github.com/andricolae/school-mngr.git
-```
+# Clone the repository
+git clone https://github.com/your-org/course-scheduler.git
 
-### Navigate to the project directory:
-```bash
-cd school-mngr
-```
+# Navigate to project directory
+cd course-scheduler
 
-### Install dependencies
-```bash
+# Install dependencies
 npm install
-```
 
-### Set up environment variables
-
-Create a .env file in the root directory of the project with the following structure:
-
-```javascript
-API_KEY="your-firebase-api-key"
-AUTH_DOM="your-firebase-auth-domain"
-PROJ_ID="your-firebase-project-id"
-STORAGE="your-firebase-storage-bucket"
-MESS_SEND_ID="your-firebase-messaging-sender-id"
-APP_ID="your-firebase-app-id"
-MEASURE_ID="your-firebase-measurement-id"
-```
-
-Replace the placeholder values with your project credentials. You can find these values in your Firebase project settings.
-
-The "start" option in package.json will generate the environment variable script based on your .env file
-
-```json
-"start": "node -r dotenv/config mynode.js && ng serve",
-```
-
-> [!CAUTION]
-> Never commit your .env or environment.ts file to version control. These files contain sensitive API keys and credentials that should remain private.
-
-### Start the development server
-
-```bash
+# Start development server
 ng serve
 ```
 
-> [!NOTE]
-> Open your browser and navigate to http://localhost:4200
+### Environment Configuration
 
-## 🏗️ Architecture
+Create a `environment.ts` file in the project root with your Firebase configuration:
 
-##### The application follows a modular architecture with:
+```typescript
+export const firebaseConfig = {
+  apiKey: 'your-api-key',
+  authDomain: 'your-auth-domain',
+  projectId: 'your-project-id',
+  storageBucket: 'your-storage-bucket',
+  messagingSenderId: 'your-messaging-sender-id',
+  appId: 'your-app-id'
+};
+```
 
-* Core modules for authentication, data services, and HTTP interceptors
-* Feature modules
-* Shared modules for common components and directives
-* State management using NgRx for predictable data flow
+[!CAUTION]
+Never commit your .env or environment.ts file to version control. These files contain sensitive API keys and credentials that should remain private.
 
-#### Tech Stack
+## 🏗️ Development
 
-Frontend: Angular 19
-Authentication: Firebase Auth
-CI/CD: Github and Vercel
+This project uses Angular's standalone component architecture. The main components are:
 
-### 🤝 Contributing
+* `SchedulerComponent`: The calendar interface for scheduling
+* `PendingCoursesComponent`: Displays courses needing scheduling
+* `CourseSessionModalComponent`: For creating/editing sessions
 
-As this is an internal Tech Trek project, contributions are welcome from all NTT DATA employees. 
+State management is handled through NgRx with the following main stores:
 
-Please follow these steps:
-1. Check the issue tracker for open tasks
-2. Request to be assigned to an issue
-3. Create a feature branch from develop
-4. Submit a merge request with your changes
-5. Ensure CI/CD pipeline passes
-6. Request a code review from the team
+* `courses`: Manages course data
+* `auth`: Handles authentication state
+* `scheduler`: Tracks scheduling-specific state
 
-> [!IMPORTANT]
-> Always create a new branch from develop for your features, not from main.
+## Related Projects
+
+* [School Manager](https://github.com/andricolae/school-mngr.git "Check the School Manager"): The main school management system
 
 ## 📝 License
+
 This project is proprietary and confidential. The code and its assets are the exclusive property of NTT DATA. Unauthorized use, reproduction, or distribution is prohibited.
 © 2025 NTT DATA | All Rights Reserved
