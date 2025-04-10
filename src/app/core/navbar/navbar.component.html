@@ -5,15 +5,17 @@
       <img src="/school.png" alt="School Logo" class="h-8 w-8 object-contain" />
       <button (click)="navigateTo('')"
         class="text-white font-semibold hover:text-gray-200 transition duration-300">
-        School App
+        Course Scheduler
       </button>
     </div>
 
     <div class="flex space-x-2">
-      <button (click)="navigateTo('/admin/scheduler')"
-              class="px-4 py-2 bg-blue-900 hover:bg-blue-300 text-white font-medium rounded-lg transition duration-300">
-          Scheduler
-      </button>
+      @if (isAuthenticated && isAdmin) {
+        <button (click)="navigateTo('/admin/scheduler')"
+                class="px-4 py-2 bg-blue-900 hover:bg-blue-300 text-white font-medium rounded-lg transition duration-300">
+            Scheduler
+        </button>
+      }
 
       @if (!isAuthenticated) {
         <button

@@ -10,5 +10,6 @@ export const routes: Routes = [
   { path: 'admin/scheduler', component: SchedulerComponent, canActivate: [roleGuard(['Admin'])] },
   { path: 'unauthorized', component: UnauthorizedComponent },
   { path: 'home', component: HomeComponent },
+  { path: '', redirectTo: '/home', pathMatch: 'full' },
   { path: '**', redirectTo: '/home' }
 ];

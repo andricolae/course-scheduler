@@ -13,7 +13,9 @@ import { NotificationComponent } from '../core/notification/notification.compone
 
 import { Course, CourseSession } from '../core/user.model';
 import * as CourseActions from '../state/courses/course.actions';
+import * as SchedulerActions from '../state/scheduler/scheduler.actions';
 import { selectAllCourses } from '../state/courses/course.selector';
+import { selectPendingCourses, selectSchedulerLoading, selectScheduleConflicts } from '../state/scheduler/scheduler.selectors';
 
 import { SchedulerApiService } from '../core/services/scheduler-api.service';
 
@@ -48,6 +50,10 @@ export class SchedulerComponent implements OnInit {
   @ViewChild('dialog') dialog!: ConfirmationDialogComponent;
 
   courses$: Observable<Course[]>;
+  pendingCourses$: Observable<Course[]>;
+  schedulerLoading$: Observable<boolean>;
+  conflicts$: Observable<any[]>;
+
   allCourses: Course[] = [];
   pendingCourses: Course[] = [];
   selectedCourse: Course | null = null;
@@ -78,11 +84,9 @@ export class SchedulerComponent implements OnInit {
     private schedulerApiService: SchedulerApiService
   ) {
     this.courses$ = this.store.select(selectAllCourses);
-  }
-
-  ngOnInit() {
-    this.loadData();
-    this.generateCalendar();
+    this.pendingCourses$ = this.store.select(selectPendingCourses);
+    this.schedulerLoading$ = this.store.select(selectSchedulerLoading);
+    this.conflicts$ = this.store.select(selectScheduleConflicts);
   }
 
   loadData() {
@@ -91,16 +95,25 @@ export class SchedulerComponent implements OnInit {
 
     this.store.dispatch(CourseActions.loadCourses());
 
+    this.store.dispatch(SchedulerActions.loadPendingCourses());
+
     this.courses$.subscribe(courses => {
       this.allCourses = courses;
+    });
 
-      this.pendingCourses = courses.filter(course =>
-        !course.sessions || course.sessions.length === 0 ||
-        this.hasUnscheduledSessions(course)
-      );
-
+    this.store.select(selectPendingCourses).subscribe(pendingCourses => {
+      this.pendingCourses = pendingCourses;
       this.isLoading = false;
       this.spinner.hide();
+    });
+
+    this.store.select(selectSchedulerLoading).subscribe(loading => {
+      this.isLoading = loading;
+      if (loading) {
+        this.spinner.show();
+      } else {
+        this.spinner.hide();
+      }
     });
   }
 
@@ -274,6 +287,27 @@ export class SchedulerComponent implements OnInit {
         }
       });
     });
+
+    if (this.newSession.date instanceof Date) {
+      const sessionToCheck = {
+        ...this.newSession,
+        date: new Date(this.newSession.date)
+      };
+
+      this.store.dispatch(SchedulerActions.checkScheduleConflicts({
+        sessions: [sessionToCheck]
+      }));
+
+      this.store.select(selectScheduleConflicts).subscribe(conflicts => {
+        if (conflicts && conflicts.length > 0) {
+          conflicts.forEach(conflict => {
+            if (!this.sessionConflicts.some(c => c.id === conflict.id)) {
+              this.sessionConflicts.push(conflict);
+            }
+          });
+        }
+      });
+    }
   }
 
   timeToMinutes(time: string): number {
@@ -378,28 +412,16 @@ export class SchedulerComponent implements OnInit {
   }
 
   saveCourseSchedule() {
-    if (!this.selectedCourse) return;
+    if (!this.selectedCourse || !this.selectedCourse.id || !this.selectedCourse.sessions) return;
 
     this.spinner.show();
 
-    this.schedulerApiService.submitSchedule(this.selectedCourse.id!, this.selectedCourse.sessions!)
-      .subscribe({
-        next: (response) => {
-          this.spinner.hide();
-          NotificationComponent.show('success', 'Course schedule saved successfully');
+    this.store.dispatch(SchedulerActions.submitSchedule({
+      courseId: this.selectedCourse.id,
+      sessions: this.selectedCourse.sessions
+    }));
 
-          if (!this.hasUnscheduledSessions(this.selectedCourse!)) {
-            this.pendingCourses = this.pendingCourses.filter(
-              course => course.id !== this.selectedCourse!.id
-            );
-            this.selectedCourse = null;
-          }
-        },
-        error: (error) => {
-          this.spinner.hide();
-          NotificationComponent.show('alert', 'Failed to save schedule: ' + error.message);
-        }
-      });
+    this.selectedCourse = null;
   }
 
   formatDate(date: Date): string {
@@ -409,4 +431,70 @@ export class SchedulerComponent implements OnInit {
       day: 'numeric'
     });
   }
+
+  // Add these properties to the SchedulerComponent class
+
+// Polling for new pending courses
+private pollingInterval: any;
+pollingEnabled = true;
+lastPolled: Date | null = null;
+
+// Add this to the ngOnInit method
+ngOnInit() {
+  this.loadData();
+  this.generateCalendar();
+
+  // Start polling for new pending courses
+  this.startPolling();
+}
+
+// Add this to the ngOnDestroy method (create if not exists)
+ngOnDestroy() {
+  // Stop polling when component is destroyed
+  this.stopPolling();
+}
+
+// Add these methods to the SchedulerComponent class
+
+/**
+ * Start polling for new pending courses
+ */
+startPolling() {
+  // Poll every 30 seconds
+  this.pollingInterval = setInterval(() => {
+    if (this.pollingEnabled) {
+      this.checkForNewPendingCourses();
+    }
+  }, 30000); // 30 seconds
+}
+
+/**
+ * Stop polling
+ */
+stopPolling() {
+  if (this.pollingInterval) {
+    clearInterval(this.pollingInterval);
+  }
+}
+
+/**
+ * Check for new pending courses
+ */
+checkForNewPendingCourses() {
+  this.lastPolled = new Date();
+
+  // Dispatch the action to load pending courses
+  this.store.dispatch(SchedulerActions.loadPendingCourses());
+}
+
+/**
+ * Toggle polling on/off
+ */
+togglePolling() {
+  this.pollingEnabled = !this.pollingEnabled;
+  if (this.pollingEnabled) {
+    // Immediately check for new courses when turning polling back on
+    this.checkForNewPendingCourses();
+  }
+}
 }
