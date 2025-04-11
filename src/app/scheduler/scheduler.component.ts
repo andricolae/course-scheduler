@@ -112,40 +112,40 @@ export class SchedulerComponent implements OnInit {
     this.stopPolling();
   }
 
-loadData() {
-  this.spinner.show();
-  this.isLoading = true;
+  loadData() {
+    this.spinner.show();
+    this.isLoading = true;
 
-  this.store.dispatch(CourseActions.loadCourses());
+    this.store.dispatch(CourseActions.loadCourses());
 
-  this.store.dispatch(SchedulerActions.loadPendingCourses());
+    this.store.dispatch(SchedulerActions.loadPendingCourses());
 
-  this.courses$.subscribe(courses => {
-    this.allCourses = courses;
-    this.generateCalendar();
-    // console.log('All courses:', courses);
-    const mathCourse = courses.find(c => c.name === 'Applied Mathematics');
-    if (mathCourse) {
-      // console.log('Math course details:', JSON.stringify(mathCourse));
-      // console.log('Math course sessions:', mathCourse.sessions);
-    }
-  });
+    this.courses$.subscribe(courses => {
+      this.allCourses = courses;
+      this.generateCalendar();
+      // console.log('All courses:', courses);
+      const mathCourse = courses.find(c => c.name === 'Applied Mathematics');
+      if (mathCourse) {
+        // console.log('Math course details:', JSON.stringify(mathCourse));
+        // console.log('Math course sessions:', mathCourse.sessions);
+      }
+    });
 
-  this.pendingCourses$.subscribe(pendingCourses => {
-    this.pendingCourses = pendingCourses;
-    this.isLoading = false;
-    this.spinner.hide();
-  });
-
-  this.schedulerLoading$.subscribe(loading => {
-    this.isLoading = loading;
-    if (loading) {
-      this.spinner.show();
-    } else {
+    this.pendingCourses$.subscribe(pendingCourses => {
+      this.pendingCourses = pendingCourses;
+      this.isLoading = false;
       this.spinner.hide();
-    }
-  });
-}
+    });
+
+    this.schedulerLoading$.subscribe(loading => {
+      this.isLoading = loading;
+      if (loading) {
+        this.spinner.show();
+      } else {
+        this.spinner.hide();
+      }
+    });
+  }
 
   hasUnscheduledSessions(course: Course): boolean {
     return false;
@@ -203,12 +203,18 @@ loadData() {
   }
 
   prevMonth() {
-    this.currentMonth.setMonth(this.currentMonth.getMonth() - 1);
+    const newDate = new Date(this.currentMonth);
+    newDate.setMonth(newDate.getMonth() - 1);
+    this.currentMonth = newDate;
+
     this.generateCalendar();
   }
 
   nextMonth() {
-    this.currentMonth.setMonth(this.currentMonth.getMonth() + 1);
+    const newDate = new Date(this.currentMonth);
+    newDate.setMonth(newDate.getMonth() + 1);
+    this.currentMonth = newDate;
+
     this.generateCalendar();
   }
 
@@ -287,13 +293,22 @@ loadData() {
   }
 
   openAddSessionModal() {
+    // Default to current date if none selected
+    const defaultDate = new Date();
+    defaultDate.setHours(0, 0, 0, 0);
+
+    // Set default times (9 AM to 10:30 AM)
+    const defaultStartTime = '09:00';
+    const defaultEndTime = '10:30';
+
     this.editingSessionId = null;
     this.newSession = {
       id: uuidv4(),
-      date: new Date(),
-      startTime: '09:00',
-      endTime: '10:30'
+      date: defaultDate,
+      startTime: defaultStartTime,
+      endTime: defaultEndTime
     };
+
     this.isRecurring = false;
     this.recurrencePattern = 'weekly';
     this.recurrenceCount = 4;
@@ -335,54 +350,54 @@ loadData() {
     }
   }
 
-checkForConflicts() {
-  if (!this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
-    return;
-  }
+  checkForConflicts() {
+    if (!this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
+      return;
+    }
 
-  this.sessionConflicts = [];
+    this.sessionConflicts = [];
 
-  const sessionDate = new Date(this.newSession.date);
-  const sessionDay = sessionDate.getDate();
-  const sessionMonth = sessionDate.getMonth();
-  const sessionYear = sessionDate.getFullYear();
+    const sessionDate = new Date(this.newSession.date);
+    const sessionDay = sessionDate.getDate();
+    const sessionMonth = sessionDate.getMonth();
+    const sessionYear = sessionDate.getFullYear();
 
-  const startMinutes = this.timeToMinutes(this.newSession.startTime);
-  const endMinutes = this.timeToMinutes(this.newSession.endTime);
+    const startMinutes = this.timeToMinutes(this.newSession.startTime);
+    const endMinutes = this.timeToMinutes(this.newSession.endTime);
 
-  this.allCourses.forEach(course => {
-    if (!course.sessions) return;
+    this.allCourses.forEach(course => {
+      if (!course.sessions) return;
 
-    course.sessions.forEach(session => {
-      if (this.editingSessionId && session.id === this.editingSessionId) {
-        return;
-      }
+      course.sessions.forEach(session => {
+        if (this.editingSessionId && session.id === this.editingSessionId) {
+          return;
+        }
 
-      const existingDate = new Date(session.date);
+        const existingDate = new Date(session.date);
 
-      if (existingDate.getDate() === sessionDay &&
+        if (existingDate.getDate() === sessionDay &&
           existingDate.getMonth() === sessionMonth &&
           existingDate.getFullYear() === sessionYear) {
 
-        const existingStart = this.timeToMinutes(session.startTime);
-        const existingEnd = this.timeToMinutes(session.endTime);
+          const existingStart = this.timeToMinutes(session.startTime);
+          const existingEnd = this.timeToMinutes(session.endTime);
 
-        if ((startMinutes >= existingStart && startMinutes < existingEnd) ||
+          if ((startMinutes >= existingStart && startMinutes < existingEnd) ||
             (endMinutes > existingStart && endMinutes <= existingEnd) ||
             (startMinutes <= existingStart && endMinutes >= existingEnd)) {
 
-          this.sessionConflicts.push({
-            id: session.id,
-            date: existingDate,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            courseName: course.name
-          });
+            this.sessionConflicts.push({
+              id: session.id,
+              date: existingDate,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              courseName: course.name
+            });
+          }
         }
-      }
+      });
     });
-  });
-}
+  }
 
   timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);
@@ -406,6 +421,7 @@ checkForConflicts() {
     return true;
   }
 
+  // Update the saveSession method in scheduler.component.ts
   saveSession() {
     if (!this.selectedCourse || !this.isSessionValid()) {
       return;
@@ -418,13 +434,16 @@ checkForConflicts() {
       return;
     }
 
-    const updatedCourse = { ...this.selectedCourse };
+    // Create a deep copy of the selected course to modify
+    const updatedCourse = JSON.parse(JSON.stringify(this.selectedCourse));
 
+    // Ensure sessions array exists
     if (!updatedCourse.sessions) {
       updatedCourse.sessions = [];
     }
 
     if (this.isRecurring && !this.editingSessionId) {
+      // Handle recurring sessions
       const recurringDates = this.generateRecurringDates(
         new Date(this.newSession.date),
         this.recurrencePattern,
@@ -438,27 +457,44 @@ checkForConflicts() {
           date: date
         };
 
-        updatedCourse.sessions!.push(newSessionCopy);
+        updatedCourse.sessions.push(newSessionCopy);
       });
 
       NotificationComponent.show('success', `Created ${recurringDates.length} recurring sessions`);
     } else {
+      // Handle single session (add or edit)
       if (this.editingSessionId) {
-        updatedCourse.sessions = updatedCourse.sessions.map(session =>
-          session.id === this.editingSessionId ? this.newSession : session
-        );
+        // Update existing session
+        const index = updatedCourse.sessions.findIndex((s: { id: string | null; }) => s.id === this.editingSessionId);
+        if (index !== -1) {
+          updatedCourse.sessions[index] = {
+            ...this.newSession
+          };
+        }
       } else {
-        updatedCourse.sessions.push(this.newSession);
+        // Add new session
+        updatedCourse.sessions.push({
+          ...this.newSession
+        });
       }
 
       NotificationComponent.show('success', 'Session saved successfully');
     }
 
+    // Update the selected course with the new sessions
     this.selectedCourse = updatedCourse;
 
-    this.store.dispatch(CourseActions.updateCourse({ course: updatedCourse }));
+    // Important: Update the course in allCourses array as well to ensure calendar view is updated
+    const courseIndex = this.allCourses.findIndex(c => c.id === updatedCourse.id);
+    if (courseIndex !== -1) {
+      this.allCourses[courseIndex] = updatedCourse;
+    }
 
+    // Close the modal
     this.closeAddSessionModal();
+
+    // Regenerate calendar to show the new sessions
+    this.generateCalendar();
   }
 
   generateRecurringDates(startDate: Date, pattern: string, count: number): Date[] {
@@ -486,9 +522,13 @@ checkForConflicts() {
   }
 
   saveCourseSchedule() {
-    if (!this.selectedCourse || !this.selectedCourse.id || !this.selectedCourse.sessions) return;
+    if (!this.selectedCourse || !this.selectedCourse.id || !this.selectedCourse.sessions) {
+      return;
+    }
 
     this.spinner.show();
+
+    this.store.dispatch(CourseActions.updateCourse({ course: this.selectedCourse }));
 
     this.store.dispatch(SchedulerActions.submitSchedule({
       courseId: this.selectedCourse.id,
@@ -504,6 +544,11 @@ checkForConflicts() {
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  formatDateForStorage(date: Date | string): string {
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
   }
 
   private pollingInterval: any;
