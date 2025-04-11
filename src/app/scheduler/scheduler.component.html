@@ -8,35 +8,30 @@
 
   <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
     <!-- Pending Courses Panel -->
-    <!-- <div class="bg-white rounded-2xl shadow p-6">
-      <h2 class="text-xl font-semibold mb-4 text-blue-600">Pending Courses</h2> -->
+    <div class="bg-white rounded-2xl shadow p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-blue-600">Pending Courses</h2>
 
-
-<!-- Add this under the "Pending Courses" heading in the scheduler component -->
-
-<div class="flex justify-between items-center mb-4">
-  <h2 class="text-xl font-semibold text-blue-600">Pending Courses</h2>
-
-  <div class="flex items-center space-x-2">
-    <span class="text-xs text-gray-500" *ngIf="lastPolled">
-      Last checked: {{ lastPolled | date:'shortTime' }}
-    </span>
-    <button
-      (click)="togglePolling()"
-      class="text-xs px-2 py-1 rounded-lg"
-      [class.bg-green-100]="pollingEnabled"
-      [class.text-green-800]="pollingEnabled"
-      [class.bg-gray-100]="!pollingEnabled"
-      [class.text-gray-800]="!pollingEnabled">
-      {{ pollingEnabled ? 'Auto-refresh ON' : 'Auto-refresh OFF' }}
-    </button>
-    <button
-      (click)="checkForNewPendingCourses()"
-      class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg">
-      Refresh Now
-    </button>
-  </div>
-</div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-gray-500" *ngIf="lastPolled">
+            Last checked: {{ lastPolled | date:'shortTime' }}
+          </span>
+          <button
+            (click)="togglePolling()"
+            class="text-xs px-2 py-1 rounded-lg"
+            [class.bg-green-100]="pollingEnabled"
+            [class.text-green-800]="pollingEnabled"
+            [class.bg-gray-100]="!pollingEnabled"
+            [class.text-gray-800]="!pollingEnabled">
+            {{ pollingEnabled ? 'Auto-refresh ON' : 'Auto-refresh OFF' }}
+          </button>
+          <button
+            (click)="checkForNewPendingCourses()"
+            class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg">
+            Refresh
+          </button>
+        </div>
+      </div>
 
       @if (isLoading) {
         <div class="flex justify-center py-8">
@@ -68,7 +63,7 @@
           }
         </ul>
       }
-    <!-- </div> -->
+    </div>
 
     <!-- Calendar Panel -->
     <div class="bg-white rounded-2xl shadow p-6 md:col-span-2">
@@ -98,6 +93,26 @@
           <p class="text-gray-500">Select a course from the list to view or schedule sessions</p>
         </div>
       } @else {
+        <div class="flex items-center justify-between mb-4">
+          <button
+            (click)="prevMonth()"
+            class="p-2 rounded-full hover:bg-gray-100 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h3 class="text-lg font-medium">
+            {{ currentMonth | date:'MMMM yyyy' }}
+          </h3>
+          <button
+            (click)="nextMonth()"
+            class="p-2 rounded-full hover:bg-gray-100 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
         <div class="border rounded-lg overflow-hidden">
           <div class="grid grid-cols-7 gap-0 text-center font-medium bg-gray-100">
             <div class="p-2">Sun</div>
@@ -112,7 +127,7 @@
           <div class="grid grid-cols-7 gap-0 min-h-[400px]">
             @for (day of calendarDays; track day.date) {
               <div
-                class="border p-1 min-h-[80px] relative"
+                class="border p-1 min-h-[80px] relative calendar-day"
                 [class.bg-gray-50]="!day.isCurrentMonth"
                 [class.bg-blue-50]="day.isToday">
                 <div class="text-right text-sm mb-1">
@@ -126,7 +141,7 @@
 
                 @for (session of getSessionsForDay(day.date); track session.id) {
                   <div
-                    class="text-xs bg-blue-100 text-blue-800 p-1 mb-1 rounded truncate cursor-pointer"
+                    class="text-xs bg-blue-100 text-blue-800 p-1 mb-1 rounded truncate cursor-pointer session-item"
                     (click)="editSession(session)">
                     {{ session.startTime }} - {{ session.endTime }}
                   </div>
@@ -178,7 +193,9 @@
         <div class="mt-4 flex justify-end">
           <button
             (click)="saveCourseSchedule()"
-            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition">
+            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition"
+            [disabled]="!selectedCourse.sessions || selectedCourse.sessions.length === 0"
+            [class.opacity-50]="!selectedCourse.sessions || selectedCourse.sessions.length === 0">
             Save Schedule
           </button>
         </div>

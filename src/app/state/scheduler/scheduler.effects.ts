@@ -17,11 +17,17 @@ export class SchedulerEffects {
     this.actions$.pipe(
       ofType(SchedulerActions.loadPendingCourses),
       mergeMap(() =>
-        this.schedulerApiService.getPendingSchedules().pipe(
-          map(courses => SchedulerActions.loadPendingCoursesSuccess({ courses })),
+        this.schedulerApiService.getPendingCourses().pipe(
+          map(response => {
+            // Check the structure of your API response
+            // Assuming response has a courses property containing the array of courses
+            const courses = response.courses || response.success ? response.courses : [];
+            return SchedulerActions.loadPendingCoursesSuccess({ courses });
+          }),
           catchError(error => {
-            NotificationComponent.show('alert', `Failed to load pending courses: ${error.message}`);
-            return of(SchedulerActions.loadPendingCoursesFail({ error: error.message }));
+            console.error('Error loading pending courses:', error);
+            NotificationComponent.show(error, 'Failed to load pending courses');
+            return of(SchedulerActions.loadPendingCoursesFailure({ error }));
           })
         )
       )

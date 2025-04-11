@@ -10,9 +10,9 @@ export const loadPendingCoursesSuccess = createAction(
   props<{ courses: Course[] }>()
 );
 
-export const loadPendingCoursesFail = createAction(
-  '[Scheduler] Load Pending Courses Fail',
-  props<{ error: string }>()
+export const loadPendingCoursesFailure = createAction(
+  '[Scheduler] Load Pending Courses Failure',
+  props<{ error: any }>()
 );
 
 export const submitSchedule = createAction(
