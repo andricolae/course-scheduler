@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, HostListener, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -32,6 +32,12 @@ interface SessionConflict {
   startTime: string;
   endTime: string;
   courseName: string;
+}
+
+interface SessionWithCourse extends CourseSession {
+  courseName: string;
+  courseId: string;
+  isSelectedCourse: boolean;
 }
 
 @Component({
@@ -89,6 +95,13 @@ export class SchedulerComponent implements OnInit {
     this.conflicts$ = this.store.select(selectScheduleConflicts);
   }
 
+  @HostListener('document:keydown.escape', ['$event'])
+  handleEscapeKey(event: KeyboardEvent) {
+    if (this.isAddSessionModalOpen) {
+      this.closeAddSessionModal();
+    }
+  }
+
   ngOnInit() {
     this.loadData();
     this.generateCalendar();
@@ -99,40 +112,63 @@ export class SchedulerComponent implements OnInit {
     this.stopPolling();
   }
 
-  loadData() {
-    this.spinner.show();
-    this.isLoading = true;
+loadData() {
+  this.spinner.show();
+  this.isLoading = true;
 
-    this.store.dispatch(CourseActions.loadCourses());
+  this.store.dispatch(CourseActions.loadCourses());
 
-    this.store.dispatch(SchedulerActions.loadPendingCourses());
+  this.store.dispatch(SchedulerActions.loadPendingCourses());
 
-    this.courses$.subscribe(courses => {
-      this.allCourses = courses;
-    });
+  this.courses$.subscribe(courses => {
+    this.allCourses = courses;
+    this.generateCalendar();
+    // console.log('All courses:', courses);
+    const mathCourse = courses.find(c => c.name === 'Applied Mathematics');
+    if (mathCourse) {
+      // console.log('Math course details:', JSON.stringify(mathCourse));
+      // console.log('Math course sessions:', mathCourse.sessions);
+    }
+  });
 
-    this.pendingCourses$.subscribe(pendingCourses => {
-      this.pendingCourses = pendingCourses;
-      this.isLoading = false;
+  this.pendingCourses$.subscribe(pendingCourses => {
+    this.pendingCourses = pendingCourses;
+    this.isLoading = false;
+    this.spinner.hide();
+  });
+
+  this.schedulerLoading$.subscribe(loading => {
+    this.isLoading = loading;
+    if (loading) {
+      this.spinner.show();
+    } else {
       this.spinner.hide();
-    });
-
-    this.schedulerLoading$.subscribe(loading => {
-      this.isLoading = loading;
-      if (loading) {
-        this.spinner.show();
-      } else {
-        this.spinner.hide();
-      }
-    });
-  }
+    }
+  });
+}
 
   hasUnscheduledSessions(course: Course): boolean {
     return false;
   }
 
   selectCourse(course: Course) {
+    // console.log('Selected course:', course);
+    // console.log('Course ID:', course.id);
     this.selectedCourse = course;
+
+    // Check all sessions and their isSelectedCourse property
+    this.allCourses.forEach(c => {
+      if (c.sessions) {
+        c.sessions.forEach(s => {
+          const isSelected = c.id === course.id;
+          // console.log(
+          //   `Course: ${c.name}, Session: ${s.startTime}, ` +
+          //   `Course ID: ${c.id}, Selected ID: ${course.id}, ` +
+          //   `IsSelected: ${isSelected}`
+          // );
+        });
+      }
+    });
   }
 
   generateCalendar() {
@@ -176,17 +212,66 @@ export class SchedulerComponent implements OnInit {
     this.generateCalendar();
   }
 
-  getSessionsForDay(date: Date): CourseSession[] {
-    if (!this.selectedCourse || !this.selectedCourse.sessions) {
-      return [];
+  getSessionsForDay(date: Date): SessionWithCourse[] {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const allSessions: SessionWithCourse[] = [];
+
+    this.allCourses.forEach(course => {
+      if (!course.sessions) return;
+
+      // if (course.name === 'Applied Mathematics') {
+      //   console.log('Processing Applied Mathematics sessions for date:', date);
+      //   console.log('Course ID:', course.id);
+      //   console.log('Sessions:', course.sessions);
+      // }
+
+      course.sessions.forEach(session => {
+        const sessionDate = new Date(session.date);
+        sessionDate.setHours(0, 0, 0, 0);
+
+        // if (course.name === 'Applied Mathematics') {
+        //   const sessionDate = new Date(session.date);
+        //   console.log('Math session date:', sessionDate, 'Original:', session.date);
+        //   console.log('Session object:', session);
+        // }
+
+        if (sessionDate.getTime() === dayStart.getTime()) {
+          allSessions.push({
+            ...session,
+            courseName: course.name,
+            courseId: course.id || '',
+            isSelectedCourse: this.selectedCourse ? course.id === this.selectedCourse.id : false
+          });
+        }
+      });
+    });
+
+    return allSessions.sort((a, b) => {
+      const timeA = this.timeToMinutes(a.startTime);
+      const timeB = this.timeToMinutes(b.startTime);
+      return timeA - timeB;
+    });
+  }
+
+  handleSessionClick(session: SessionWithCourse) {
+    // console.log('Session clicked:', session);
+    // console.log('Course name:', session.courseName);
+    // console.log('Is from selected course:', session.isSelectedCourse);
+
+    if (session.isSelectedCourse && this.selectedCourse) {
+      this.editSession(session);
+      return;
     }
 
-    return this.selectedCourse.sessions.filter(session => {
-      const sessionDate = new Date(session.date);
-      return sessionDate.getDate() === date.getDate() &&
-            sessionDate.getMonth() === date.getMonth() &&
-            sessionDate.getFullYear() === date.getFullYear();
-    });
+    const courseName = session.courseName || 'Unknown Course';
+    const message = `Can't access ${courseName} course's session because it is not selected`;
+
+    NotificationComponent.show('alert', message, 5000);
   }
 
   sortedSessions() {
@@ -250,75 +335,54 @@ export class SchedulerComponent implements OnInit {
     }
   }
 
-  checkForConflicts() {
-    if (!this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
-      return;
-    }
+checkForConflicts() {
+  if (!this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
+    return;
+  }
 
-    this.sessionConflicts = [];
+  this.sessionConflicts = [];
 
-    const sessionDate = new Date(this.newSession.date);
-    const sessionDay = sessionDate.getDate();
-    const sessionMonth = sessionDate.getMonth();
-    const sessionYear = sessionDate.getFullYear();
+  const sessionDate = new Date(this.newSession.date);
+  const sessionDay = sessionDate.getDate();
+  const sessionMonth = sessionDate.getMonth();
+  const sessionYear = sessionDate.getFullYear();
 
-    const startMinutes = this.timeToMinutes(this.newSession.startTime);
-    const endMinutes = this.timeToMinutes(this.newSession.endTime);
+  const startMinutes = this.timeToMinutes(this.newSession.startTime);
+  const endMinutes = this.timeToMinutes(this.newSession.endTime);
 
-    this.allCourses.forEach(course => {
-      if (!course.sessions) return;
+  this.allCourses.forEach(course => {
+    if (!course.sessions) return;
 
-      course.sessions.forEach(session => {
-        if (this.editingSessionId && session.id === this.editingSessionId) {
-          return;
-        }
+    course.sessions.forEach(session => {
+      if (this.editingSessionId && session.id === this.editingSessionId) {
+        return;
+      }
 
-        const existingDate = new Date(session.date);
+      const existingDate = new Date(session.date);
 
-        if (existingDate.getDate() === sessionDay &&
-            existingDate.getMonth() === sessionMonth &&
-            existingDate.getFullYear() === sessionYear) {
+      if (existingDate.getDate() === sessionDay &&
+          existingDate.getMonth() === sessionMonth &&
+          existingDate.getFullYear() === sessionYear) {
 
-          const existingStart = this.timeToMinutes(session.startTime);
-          const existingEnd = this.timeToMinutes(session.endTime);
+        const existingStart = this.timeToMinutes(session.startTime);
+        const existingEnd = this.timeToMinutes(session.endTime);
 
-          if ((startMinutes >= existingStart && startMinutes < existingEnd) ||
-              (endMinutes > existingStart && endMinutes <= existingEnd) ||
-              (startMinutes <= existingStart && endMinutes >= existingEnd)) {
+        if ((startMinutes >= existingStart && startMinutes < existingEnd) ||
+            (endMinutes > existingStart && endMinutes <= existingEnd) ||
+            (startMinutes <= existingStart && endMinutes >= existingEnd)) {
 
-            this.sessionConflicts.push({
-              id: session.id,
-              date: existingDate,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              courseName: course.name
-            });
-          }
-        }
-      });
-    });
-
-    if (this.newSession.date instanceof Date) {
-      const sessionToCheck = {
-        ...this.newSession,
-        date: new Date(this.newSession.date)
-      };
-
-      this.store.dispatch(SchedulerActions.checkScheduleConflicts({
-        sessions: [sessionToCheck]
-      }));
-
-      this.store.select(selectScheduleConflicts).subscribe(conflicts => {
-        if (conflicts && conflicts.length > 0) {
-          conflicts.forEach(conflict => {
-            if (!this.sessionConflicts.some(c => c.id === conflict.id)) {
-              this.sessionConflicts.push(conflict);
-            }
+          this.sessionConflicts.push({
+            id: session.id,
+            date: existingDate,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            courseName: course.name
           });
         }
-      });
-    }
-  }
+      }
+    });
+  });
+}
 
   timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);

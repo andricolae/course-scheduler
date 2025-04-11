@@ -6,3 +6,20 @@
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+.session-item {
+  position: relative;
+  border-left: 2px solid;
+}
+
+.session-item.bg-blue-100 {
+  border-left-color: #3b82f6;
+}
+
+.session-item.bg-gray-100 {
+  border-left-color: #6b7280;
+}
+
+.session-item:hover {
+  filter: brightness(0.95);
+}
