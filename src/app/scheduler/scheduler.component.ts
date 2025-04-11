@@ -89,6 +89,16 @@ export class SchedulerComponent implements OnInit {
     this.conflicts$ = this.store.select(selectScheduleConflicts);
   }
 
+  ngOnInit() {
+    this.loadData();
+    this.generateCalendar();
+    this.startPolling();
+  }
+
+  ngOnDestroy() {
+    this.stopPolling();
+  }
+
   loadData() {
     this.spinner.show();
     this.isLoading = true;
@@ -101,13 +111,13 @@ export class SchedulerComponent implements OnInit {
       this.allCourses = courses;
     });
 
-    this.store.select(selectPendingCourses).subscribe(pendingCourses => {
+    this.pendingCourses$.subscribe(pendingCourses => {
       this.pendingCourses = pendingCourses;
       this.isLoading = false;
       this.spinner.hide();
     });
 
-    this.store.select(selectSchedulerLoading).subscribe(loading => {
+    this.schedulerLoading$.subscribe(loading => {
       this.isLoading = loading;
       if (loading) {
         this.spinner.show();
@@ -432,69 +442,37 @@ export class SchedulerComponent implements OnInit {
     });
   }
 
-  // Add these properties to the SchedulerComponent class
+  private pollingInterval: any;
+  pollingEnabled = true;
+  lastPolled: Date | null = null;
 
-// Polling for new pending courses
-private pollingInterval: any;
-pollingEnabled = true;
-lastPolled: Date | null = null;
+  startPolling() {
+    this.pollingInterval = setInterval(() => {
+      if (this.pollingEnabled) {
+        this.checkForNewPendingCourses();
+      }
+    }, 60000);
+  }
 
-// Add this to the ngOnInit method
-ngOnInit() {
-  this.loadData();
-  this.generateCalendar();
 
-  // Start polling for new pending courses
-  this.startPolling();
-}
+  stopPolling() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
+  }
 
-// Add this to the ngOnDestroy method (create if not exists)
-ngOnDestroy() {
-  // Stop polling when component is destroyed
-  this.stopPolling();
-}
 
-// Add these methods to the SchedulerComponent class
+  checkForNewPendingCourses() {
+    this.lastPolled = new Date();
 
-/**
- * Start polling for new pending courses
- */
-startPolling() {
-  // Poll every 30 seconds
-  this.pollingInterval = setInterval(() => {
+    this.store.dispatch(SchedulerActions.loadPendingCourses());
+  }
+
+
+  togglePolling() {
+    this.pollingEnabled = !this.pollingEnabled;
     if (this.pollingEnabled) {
       this.checkForNewPendingCourses();
     }
-  }, 30000); // 30 seconds
-}
-
-/**
- * Stop polling
- */
-stopPolling() {
-  if (this.pollingInterval) {
-    clearInterval(this.pollingInterval);
   }
-}
-
-/**
- * Check for new pending courses
- */
-checkForNewPendingCourses() {
-  this.lastPolled = new Date();
-
-  // Dispatch the action to load pending courses
-  this.store.dispatch(SchedulerActions.loadPendingCourses());
-}
-
-/**
- * Toggle polling on/off
- */
-togglePolling() {
-  this.pollingEnabled = !this.pollingEnabled;
-  if (this.pollingEnabled) {
-    // Immediately check for new courses when turning polling back on
-    this.checkForNewPendingCourses();
-  }
-}
 }

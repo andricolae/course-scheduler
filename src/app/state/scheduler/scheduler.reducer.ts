@@ -21,8 +21,7 @@ export const schedulerReducer = createReducer(
 
   on(SchedulerActions.loadPendingCourses, state => ({
     ...state,
-    loading: true,
-    error: null
+    loading: true
   })),
 
   on(SchedulerActions.loadPendingCoursesSuccess, (state, { courses }) => ({
@@ -32,7 +31,7 @@ export const schedulerReducer = createReducer(
     error: null
   })),
 
-  on(SchedulerActions.loadPendingCoursesFail, (state, { error }) => ({
+  on(SchedulerActions.loadPendingCoursesFailure, (state, { error }) => ({
     ...state,
     loading: false,
     error

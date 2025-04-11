@@ -13,6 +13,14 @@ export class SchedulerApiService {
 
   constructor(private http: HttpClient) { }
 
+  getPendingCourses(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/get-pending`);
+  }
+
+  checkScheduleConflicts(sessions: any[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/check-conflicts`, { sessions });
+  }
+
   /**
    * Get the auth headers for API requests
    */
