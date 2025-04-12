@@ -70,15 +70,6 @@ export class SchedulerEffects {
     )
   );
 
-  // reloadCoursesAfterSubmit$ = createEffect(() =>
-  //   this.actions$.pipe(
-  //     ofType(SchedulerActions.submitScheduleSuccess),
-  //     map(() => {
-  //       return CourseActions.loadCourses();
-  //     })
-  //   )
-  // );
-
   checkScheduleConflicts$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SchedulerActions.checkScheduleConflicts),

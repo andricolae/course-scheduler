@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, ViewChild } from '@angular/core';
+import { Component, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,6 +10,8 @@ import { SpinnerComponent } from '../core/spinner/spinner.component';
 import { SpinnerService } from '../core/services/spinner.service';
 import { ConfirmationDialogComponent } from '../core/confirmation-dialog/confirmation-dialog.component';
 import { NotificationComponent } from '../core/notification/notification.component';
+import * as LogActions from '../state/logs/log.actions';
+import { LogCategory } from '../core/log.model';
 
 import { Course, CourseSession } from '../core/user.model';
 import * as CourseActions from '../state/courses/course.actions';
@@ -83,16 +85,27 @@ export class SchedulerComponent implements OnInit {
   recurrenceCount = 4;
 
   sessionConflicts: SessionConflict[] = [];
+  private store = inject(Store, { optional: true });
 
   constructor(
-    private store: Store,
     private spinner: SpinnerService,
     private schedulerApiService: SchedulerApiService
   ) {
-    this.courses$ = this.store.select(selectAllCourses);
-    this.pendingCourses$ = this.store.select(selectPendingCourses);
-    this.schedulerLoading$ = this.store.select(selectSchedulerLoading);
-    this.conflicts$ = this.store.select(selectScheduleConflicts);
+    this.courses$ = this.store!.select(selectAllCourses);
+    this.pendingCourses$ = this.store!.select(selectPendingCourses);
+    this.schedulerLoading$ = this.store!.select(selectSchedulerLoading);
+    this.conflicts$ = this.store!.select(selectScheduleConflicts);
+  }
+
+  private logSchedulerAction(action: string, details?: any): void {
+    this.store!.dispatch(LogActions.addLog({
+      log: {
+        timestamp: Date.now(),
+        category: LogCategory.SCHEDULER,
+        action,
+        details
+      }
+    }));
   }
 
   @HostListener('document:keydown.escape', ['$event'])
@@ -103,6 +116,8 @@ export class SchedulerComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.logSchedulerAction('SCHEDULER_INITIALIZED');
+
     this.loadData();
     this.generateCalendar();
     this.startPolling();
@@ -110,31 +125,31 @@ export class SchedulerComponent implements OnInit {
 
   ngOnDestroy() {
     this.stopPolling();
+    this.logSchedulerAction('SCHEDULER_DESTROYED');
   }
 
   loadData() {
     this.spinner.show();
     this.isLoading = true;
 
-    this.store.dispatch(CourseActions.loadCourses());
+    this.logSchedulerAction('LOAD_COURSES');
+    this.store!.dispatch(CourseActions.loadCourses());
 
-    this.store.dispatch(SchedulerActions.loadPendingCourses());
+    this.logSchedulerAction('LOAD_PENDING_COURSES');
+    this.store!.dispatch(SchedulerActions.loadPendingCourses());
 
     this.courses$.subscribe(courses => {
       this.allCourses = courses;
       this.generateCalendar();
-      // console.log('All courses:', courses);
-      const mathCourse = courses.find(c => c.name === 'Applied Mathematics');
-      if (mathCourse) {
-        // console.log('Math course details:', JSON.stringify(mathCourse));
-        // console.log('Math course sessions:', mathCourse.sessions);
-      }
+      this.logSchedulerAction('COURSES_LOADED', { count: courses.length });
+
     });
 
     this.pendingCourses$.subscribe(pendingCourses => {
       this.pendingCourses = pendingCourses;
       this.isLoading = false;
       this.spinner.hide();
+      this.logSchedulerAction('PENDING_COURSES_LOADED', { count: pendingCourses.length });
     });
 
     this.schedulerLoading$.subscribe(loading => {
@@ -152,23 +167,8 @@ export class SchedulerComponent implements OnInit {
   }
 
   selectCourse(course: Course) {
-    // console.log('Selected course:', course);
-    // console.log('Course ID:', course.id);
     this.selectedCourse = course;
-
-    // Check all sessions and their isSelectedCourse property
-    this.allCourses.forEach(c => {
-      if (c.sessions) {
-        c.sessions.forEach(s => {
-          const isSelected = c.id === course.id;
-          // console.log(
-          //   `Course: ${c.name}, Session: ${s.startTime}, ` +
-          //   `Course ID: ${c.id}, Selected ID: ${course.id}, ` +
-          //   `IsSelected: ${isSelected}`
-          // );
-        });
-      }
-    });
+    this.logSchedulerAction('COURSE_SELECTED', { courseId: course.id, courseName: course.name });
   }
 
   generateCalendar() {
@@ -206,7 +206,10 @@ export class SchedulerComponent implements OnInit {
     const newDate = new Date(this.currentMonth);
     newDate.setMonth(newDate.getMonth() - 1);
     this.currentMonth = newDate;
-
+    this.logSchedulerAction('CALENDAR_PREV_MONTH', {
+      month: newDate.getMonth() + 1,
+      year: newDate.getFullYear()
+    });
     this.generateCalendar();
   }
 
@@ -214,7 +217,10 @@ export class SchedulerComponent implements OnInit {
     const newDate = new Date(this.currentMonth);
     newDate.setMonth(newDate.getMonth() + 1);
     this.currentMonth = newDate;
-
+    this.logSchedulerAction('CALENDAR_NEXT_MONTH', {
+      month: newDate.getMonth() + 1,
+      year: newDate.getFullYear()
+    });
     this.generateCalendar();
   }
 
@@ -230,21 +236,9 @@ export class SchedulerComponent implements OnInit {
     this.allCourses.forEach(course => {
       if (!course.sessions) return;
 
-      // if (course.name === 'Applied Mathematics') {
-      //   console.log('Processing Applied Mathematics sessions for date:', date);
-      //   console.log('Course ID:', course.id);
-      //   console.log('Sessions:', course.sessions);
-      // }
-
       course.sessions.forEach(session => {
         const sessionDate = new Date(session.date);
         sessionDate.setHours(0, 0, 0, 0);
-
-        // if (course.name === 'Applied Mathematics') {
-        //   const sessionDate = new Date(session.date);
-        //   console.log('Math session date:', sessionDate, 'Original:', session.date);
-        //   console.log('Session object:', session);
-        // }
 
         if (sessionDate.getTime() === dayStart.getTime()) {
           allSessions.push({
@@ -265,9 +259,13 @@ export class SchedulerComponent implements OnInit {
   }
 
   handleSessionClick(session: SessionWithCourse) {
-    // console.log('Session clicked:', session);
-    // console.log('Course name:', session.courseName);
-    // console.log('Is from selected course:', session.isSelectedCourse);
+    this.logSchedulerAction('SESSION_CLICKED', {
+      sessionId: session.id,
+      courseId: session.courseId,
+      courseName: session.courseName,
+      date: new Date(session.date).toISOString().split('T')[0],
+      time: `${session.startTime}-${session.endTime}`
+    });
 
     if (session.isSelectedCourse && this.selectedCourse) {
       this.editSession(session);
@@ -293,11 +291,9 @@ export class SchedulerComponent implements OnInit {
   }
 
   openAddSessionModal() {
-    // Default to current date if none selected
     const defaultDate = new Date();
     defaultDate.setHours(0, 0, 0, 0);
 
-    // Set default times (9 AM to 10:30 AM)
     const defaultStartTime = '09:00';
     const defaultEndTime = '10:30';
 
@@ -314,10 +310,16 @@ export class SchedulerComponent implements OnInit {
     this.recurrenceCount = 4;
     this.sessionConflicts = [];
 
+    this.logSchedulerAction('ADD_SESSION_MODAL_OPENED', {
+      courseId: this.selectedCourse?.id,
+      courseName: this.selectedCourse?.name
+    });
+
     this.isAddSessionModalOpen = true;
   }
 
   closeAddSessionModal() {
+    this.logSchedulerAction('SESSION_MODAL_CLOSED');
     this.isAddSessionModalOpen = false;
   }
 
@@ -330,12 +332,26 @@ export class SchedulerComponent implements OnInit {
     this.isRecurring = false;
     this.sessionConflicts = [];
 
+    this.logSchedulerAction('EDIT_SESSION_STARTED', {
+      sessionId: session.id,
+      courseId: this.selectedCourse?.id,
+      date: new Date(session.date).toISOString().split('T')[0],
+      time: `${session.startTime}-${session.endTime}`
+    });
+
     this.checkForConflicts();
     this.isAddSessionModalOpen = true;
   }
 
   async deleteSession(session: CourseSession) {
     if (!this.selectedCourse) return;
+
+    this.logSchedulerAction('DELETE_SESSION_ATTEMPT', {
+      sessionId: session.id,
+      courseId: this.selectedCourse.id,
+      date: new Date(session.date).toISOString().split('T')[0],
+      time: `${session.startTime}-${session.endTime}`
+    });
 
     const confirmed = await this.dialog.open('Are you sure you want to delete this session?');
 
@@ -345,8 +361,18 @@ export class SchedulerComponent implements OnInit {
 
       this.selectedCourse = updatedCourse;
 
-      this.store.dispatch(CourseActions.updateCourse({ course: updatedCourse }));
+      this.logSchedulerAction('DELETE_SESSION_CONFIRMED', {
+        sessionId: session.id,
+        courseId: this.selectedCourse.id
+      });
+
+      this.store!.dispatch(CourseActions.updateCourse({ course: updatedCourse }));
       NotificationComponent.show('success', 'Session deleted successfully');
+    } else {
+      this.logSchedulerAction('DELETE_SESSION_CANCELLED', {
+        sessionId: session.id,
+        courseId: this.selectedCourse.id
+      });
     }
   }
 
@@ -397,6 +423,20 @@ export class SchedulerComponent implements OnInit {
         }
       });
     });
+
+    if (this.sessionConflicts.length > 0) {
+      this.logSchedulerAction('SCHEDULING_CONFLICTS_DETECTED', {
+        courseId: this.selectedCourse?.id,
+        date: sessionDate.toISOString().split('T')[0],
+        time: `${this.newSession.startTime}-${this.newSession.endTime}`,
+        conflictsCount: this.sessionConflicts.length,
+        conflicts: this.sessionConflicts.map(c => ({
+          id: c.id,
+          courseName: c.courseName,
+          time: `${c.startTime}-${c.endTime}`
+        }))
+      });
+    }
   }
 
   timeToMinutes(time: string): number {
@@ -421,7 +461,6 @@ export class SchedulerComponent implements OnInit {
     return true;
   }
 
-  // Update the saveSession method in scheduler.component.ts
   saveSession() {
     if (!this.selectedCourse || !this.isSessionValid()) {
       return;
@@ -430,20 +469,23 @@ export class SchedulerComponent implements OnInit {
     this.checkForConflicts();
 
     if (this.sessionConflicts.length > 0) {
+      this.logSchedulerAction('SESSION_SAVE_FAILED_CONFLICTS', {
+        courseId: this.selectedCourse.id,
+        sessionId: this.editingSessionId || this.newSession.id,
+        conflictsCount: this.sessionConflicts.length
+      });
+
       NotificationComponent.show('alert', 'Cannot save session due to scheduling conflicts');
       return;
     }
 
-    // Create a deep copy of the selected course to modify
     const updatedCourse = JSON.parse(JSON.stringify(this.selectedCourse));
 
-    // Ensure sessions array exists
     if (!updatedCourse.sessions) {
       updatedCourse.sessions = [];
     }
 
     if (this.isRecurring && !this.editingSessionId) {
-      // Handle recurring sessions
       const recurringDates = this.generateRecurringDates(
         new Date(this.newSession.date),
         this.recurrencePattern,
@@ -460,40 +502,53 @@ export class SchedulerComponent implements OnInit {
         updatedCourse.sessions.push(newSessionCopy);
       });
 
+      this.logSchedulerAction('RECURRING_SESSIONS_CREATED', {
+        courseId: this.selectedCourse.id,
+        pattern: this.recurrencePattern,
+        count: recurringDates.length,
+        startDate: recurringDates[0].toISOString().split('T')[0]
+      });
+
       NotificationComponent.show('success', `Created ${recurringDates.length} recurring sessions`);
     } else {
-      // Handle single session (add or edit)
       if (this.editingSessionId) {
-        // Update existing session
         const index = updatedCourse.sessions.findIndex((s: { id: string | null; }) => s.id === this.editingSessionId);
         if (index !== -1) {
           updatedCourse.sessions[index] = {
             ...this.newSession
           };
+
+          this.logSchedulerAction('SESSION_UPDATED', {
+            courseId: this.selectedCourse.id,
+            sessionId: this.editingSessionId,
+            date: new Date(this.newSession.date).toISOString().split('T')[0],
+            time: `${this.newSession.startTime}-${this.newSession.endTime}`
+          });
         }
       } else {
-        // Add new session
         updatedCourse.sessions.push({
           ...this.newSession
+        });
+          this.logSchedulerAction('SESSION_ADDED', {
+          courseId: this.selectedCourse.id,
+          sessionId: this.newSession.id,
+          date: new Date(this.newSession.date).toISOString().split('T')[0],
+          time: `${this.newSession.startTime}-${this.newSession.endTime}`
         });
       }
 
       NotificationComponent.show('success', 'Session saved successfully');
     }
 
-    // Update the selected course with the new sessions
     this.selectedCourse = updatedCourse;
 
-    // Important: Update the course in allCourses array as well to ensure calendar view is updated
     const courseIndex = this.allCourses.findIndex(c => c.id === updatedCourse.id);
     if (courseIndex !== -1) {
       this.allCourses[courseIndex] = updatedCourse;
     }
 
-    // Close the modal
     this.closeAddSessionModal();
 
-    // Regenerate calendar to show the new sessions
     this.generateCalendar();
   }
 
@@ -529,9 +584,13 @@ export class SchedulerComponent implements OnInit {
 
     this.spinner.show();
 
-    //this.store.dispatch(CourseActions.updateCourse({ course: this.selectedCourse }));
+    this.logSchedulerAction('SAVE_COURSE_SCHEDULE', {
+      courseId: this.selectedCourse.id,
+      courseName: this.selectedCourse.name,
+      sessionsCount: this.selectedCourse.sessions.length
+    });
 
-    this.store.dispatch(SchedulerActions.submitSchedule({
+    this.store!.dispatch(SchedulerActions.submitSchedule({
       courseId: this.selectedCourse.id,
       sessions: this.selectedCourse.sessions
     }));
@@ -557,6 +616,8 @@ export class SchedulerComponent implements OnInit {
   lastPolled: Date | null = null;
 
   startPolling() {
+    this.logSchedulerAction('POLLING_STARTED', { interval: '60 seconds' });
+
     this.pollingInterval = setInterval(() => {
       if (this.pollingEnabled) {
         this.checkForNewPendingCourses();
@@ -568,19 +629,21 @@ export class SchedulerComponent implements OnInit {
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
+      this.logSchedulerAction('POLLING_STOPPED');
     }
   }
 
 
   checkForNewPendingCourses() {
     this.lastPolled = new Date();
-
-    this.store.dispatch(SchedulerActions.loadPendingCourses());
+    this.logSchedulerAction('POLLING_CHECK', { timestamp: this.lastPolled.toISOString() });
+    this.store!.dispatch(SchedulerActions.loadPendingCourses());
   }
 
 
   togglePolling() {
     this.pollingEnabled = !this.pollingEnabled;
+    this.logSchedulerAction('POLLING_TOGGLED', { enabled: this.pollingEnabled });
     if (this.pollingEnabled) {
       this.checkForNewPendingCourses();
     }

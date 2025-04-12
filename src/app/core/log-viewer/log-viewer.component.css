@@ -1,0 +1,29 @@
+tr:hover td {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+tr.bg-gray-50 td {
+  transition: all 0.2s ease-in-out;
+}
+
+pre {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+pre::-webkit-scrollbar {
+  width: 6px;
+}
+
+pre::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+pre::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}

@@ -4,7 +4,7 @@ import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { AppComponent } from './app/app.component';
 import { provideRouter } from '@angular/router';
 import { routes } from './app/app.routes';
-import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { HttpResponse, provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { firebaseConfig } from '../environment';
 import { provideZoneChangeDetection } from '@angular/core';
 import { provideStore } from '@ngrx/store';
@@ -18,13 +18,32 @@ import { authReducer } from './app/state/auth/auth.reducer';
 import { schedulerReducer } from './app/state/scheduler/scheduler.reducer';
 import { SchedulerEffects } from './app/state/scheduler/scheduler.effects';
 import { AuthInterceptor } from './app/state/auth/auth.interceptors';
+import { logReducer } from './app/state/logs/log.reducer';
+import { LogEffects } from './app/state/logs/log.effects';
+import { tap } from 'rxjs';
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes),
     provideHttpClient(
-      withFetch()
-      // withInterceptors([AuthInterceptor])
+      withFetch(),
+      withInterceptors([
+        function loggingInterceptor(req, next) {
+          const startTime = Date.now();
+          return next(req).pipe(tap({
+            next: (event) => {
+              if (event instanceof HttpResponse) {
+                const duration = Date.now() - startTime;
+                console.log(`HTTP ${req.method} ${req.url} completed in ${duration}ms with status ${event.status}`);
+              }
+            },
+            error: (error) => {
+              const duration = Date.now() - startTime;
+              console.error(`HTTP ${req.method} ${req.url} failed in ${duration}ms with status ${error.status}: ${error.message}`);
+            }
+          }));
+        }
+      ])
     ),
     provideFirebaseApp(() => initializeApp(firebaseConfig)),
     provideFirestore(() => getFirestore()),
@@ -33,12 +52,14 @@ bootstrapApplication(AppComponent, {
     provideStore({
       courses: coursesReducer,
       auth: authReducer,
-      scheduler: schedulerReducer
+      scheduler: schedulerReducer,
+      log: logReducer
     }),
     provideEffects([
       CoursesEffects,
       AuthEffects,
-      SchedulerEffects
+      SchedulerEffects,
+      LogEffects
     ]),
     provideStoreDevtools({
       maxAge: 25,

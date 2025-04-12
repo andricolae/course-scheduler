@@ -15,7 +15,6 @@ export class AuthInterceptor implements HttpInterceptor {
   constructor(private router: Router) {}
 
   intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
-    // Get the token from localStorage
     const userData = localStorage.getItem('userData');
     let token = '';
 
@@ -28,7 +27,6 @@ export class AuthInterceptor implements HttpInterceptor {
       }
     }
 
-    // Clone the request and add the authorization header
     if (token) {
       request = request.clone({
         setHeaders: {
@@ -37,12 +35,9 @@ export class AuthInterceptor implements HttpInterceptor {
       });
     }
 
-    // Pass on the modified request
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
-        // Handle authentication errors
         if (error.status === 401) {
-          // Redirect to login page
           this.router.navigate(['/login']);
         }
         return throwError(() => error);
