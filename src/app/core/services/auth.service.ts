@@ -6,6 +6,9 @@ import { Router } from "@angular/router";
 import { DbService } from "../services/db.service";
 import { firebaseConfig } from '../../../../environment';
 import { isPlatformBrowser } from "@angular/common";
+import { Store } from "@ngrx/store";
+import * as LogActions from '../../state/logs/log.actions';
+import { LogCategory } from '../log.model';
 
 interface AuthResponseData {
   idToken: string;
@@ -23,6 +26,7 @@ export class AuthService {
   private resetPasswordUrl = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${this.apiKey}`;
   private verifyEmailUrl = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${this.apiKey}`;
   private getUserDataUrl = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${this.apiKey}`;
+  private store = inject(Store, { optional: true });
 
   user = new BehaviorSubject<User | null>(null);
   isLogged = signal<boolean>(false);
@@ -30,13 +34,28 @@ export class AuthService {
   constructor(
     private http: HttpClient,
     private router: Router,
-    private dbService: DbService
+    private dbService: DbService,
   ) {
     this.autoLogin();
   }
 
+  private logAuthAction(action: string, details?: any): void {
+    this.store!.dispatch(LogActions.addLog({
+      log: {
+        timestamp: Date.now(),
+        userId: this.user.value?.id,
+        userRole: this.user.value?.role,
+        category: LogCategory.AUTH,
+        action,
+        details
+      }
+    }));
+  }
+
   signup(email: string, password: string, fullName: string, role: string): Observable<AuthResponseData> {
     const hashedPassword = btoa(password);
+    this.logAuthAction('SIGNUP_ATTEMPT', { email, fullName, role });
+
     return this.http.post<AuthResponseData>(this.signUpUrl, {
       email,
       password,
@@ -44,20 +63,26 @@ export class AuthService {
       role,
       returnSecureToken: true
     }).pipe(
-      tap((res) => console.log('AuthService SIGNUP success:', res)),
+      tap((res) => {
+        console.log('AuthService SIGNUP success:', res);
+        this.logAuthAction('SIGNUP_SUCCESS', { email, role });
+      }),
       switchMap((resData) => {
         if (!resData.localId) {
+          this.logAuthAction('SIGNUP_FAILED', { email, error: 'User creation failed' });
           return throwError(() => new Error("User creation failed"));
         }
         return this.sendVerificationEmail(resData.idToken).pipe(
-          switchMap(() =>
-            this.dbService.saveUserProfile(resData.localId, email, hashedPassword, fullName, role)
-          ),
+          switchMap(() => {
+            this.logAuthAction('VERIFICATION_EMAIL_SENT', { email });
+            return this.dbService.saveUserProfile(resData.localId, email, hashedPassword, fullName, role)
+          }),
           map(() => resData)
         );
       }),
       catchError((err) => {
         console.error('AuthService SIGNUP error:', err);
+        this.logAuthAction('SIGNUP_ERROR', { email, error: err.message });
         return this.handleError(err);
       })
     );
@@ -73,8 +98,10 @@ export class AuthService {
   }
 
   logout() {
+    const userEmail = this.user.value?.email;
     this.user.next(null);
     console.log('Logging out...');
+    this.logAuthAction('LOGOUT', { email: userEmail });
     localStorage.removeItem('userData');
     this.router.navigate(['/auth']);
   }
@@ -83,6 +110,7 @@ export class AuthService {
     const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
     const user = new User(email, userId, token, expirationDate, 'Student');
     this.user.next(user);
+    this.logAuthAction('USER_AUTHENTICATED', { email, userId, role: user.role });
     localStorage.setItem('userData', JSON.stringify({
         email: user.email,
         id: user.id,
@@ -93,6 +121,8 @@ export class AuthService {
   }
 
   login(email: string, password: string): Observable<User> {
+    this.logAuthAction('LOGIN_ATTEMPT', { email });
+
     return this.http.post<AuthResponseData>(this.loginUrl, {
       email,
       password,
@@ -102,6 +132,7 @@ export class AuthService {
         return this.checkEmailVerification(resData.idToken).pipe(
           switchMap((isVerified) => {
             if (!isVerified) {
+              this.logAuthAction('LOGIN_FAILED', { email, reason: 'Email not verified' });
               return throwError(() => ({
                 error: { error: { message: 'EMAIL_NOT_VERIFIED' } }
               }));
@@ -109,6 +140,7 @@ export class AuthService {
             return this.dbService.getUserProfile(resData.localId).pipe(
               map((profileData) => {
                 if (!profileData) {
+                  this.logAuthAction('LOGIN_FAILED', { email, reason: 'User profile not found' });
                   throw new Error('User profile not found in Firestore.');
                 }
                 const roles = profileData.role ?? ['Student'];
@@ -123,6 +155,7 @@ export class AuthService {
                   _tokenExpirationDate: expirationDate.toISOString(),
                   role: user.role
                 }));
+                this.logAuthAction('LOGIN_SUCCESS', { email, userId: user.id, role: user.role });
 
                 console.log('Login complete, user with roles:', user);
 
@@ -132,7 +165,10 @@ export class AuthService {
           })
         );
       }),
-      catchError(this.handleError)
+      catchError((error) => {
+        this.logAuthAction('LOGIN_ERROR', { email, error: error.message });
+        return this.handleError(error);
+      })
     );
   }
 
@@ -141,8 +177,11 @@ export class AuthService {
       take(1),
       switchMap(user => {
         if (!user || !user.token) {
+          this.logAuthAction('PASSWORD_UPDATE_FAILED', { reason: 'No authenticated user' });
           return throwError(() => new Error('No authenticated user!'));
         }
+        this.logAuthAction('PASSWORD_UPDATE_ATTEMPT', { userId: user.id });
+
         return this.http.post<any>(
           `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${this.apiKey}`,
           {
@@ -156,8 +195,14 @@ export class AuthService {
               map(() => resData)
             );
           }),
-          tap(() => console.log('Password successfully updated in Firebase Authentication and Firestore.')),
-          catchError(this.handleError)
+          tap(() => {
+            this.logAuthAction('PASSWORD_UPDATE_SUCCESS', { userId: user.id });
+            console.log('Password successfully updated in Firebase Authentication and Firestore.')
+          }),
+          catchError((error) => {
+            this.logAuthAction('PASSWORD_UPDATE_ERROR', { userId: user.id, error: error.message });
+            return this.handleError(error);
+          })
         );
       })
     );
@@ -176,11 +221,19 @@ export class AuthService {
   }
 
   resetPassword(email: string): Observable<any> {
+    this.logAuthAction('PASSWORD_RESET_REQUEST', { email });
+
     return this.http.post<any>(this.resetPasswordUrl, {
       requestType: "PASSWORD_RESET",
       email
     }).pipe(
-      catchError(this.handleError)
+      tap(() => {
+        this.logAuthAction('PASSWORD_RESET_EMAIL_SENT', { email });
+      }),
+      catchError((error) => {
+        this.logAuthAction('PASSWORD_RESET_ERROR', { email, error: error.message });
+        return this.handleError(error);
+      })
     );
   }
 
@@ -206,9 +259,17 @@ export class AuthService {
       );
       if (loadedUser.token) {
         this.user.next(loadedUser);
+        this.logAuthAction('AUTO_LOGIN_SUCCESS', {
+          email: loadedUser.email,
+          userId: loadedUser.id,
+          role: loadedUser.role
+        });
+      } else {
+        this.logAuthAction('AUTO_LOGIN_TOKEN_EXPIRED', { email: loadedUser.email });
       }
     } catch (error) {
       console.error("Auto login failed", error);
+      this.logAuthAction('AUTO_LOGIN_ERROR', { error: 'Parse error' });
     }
   }
 

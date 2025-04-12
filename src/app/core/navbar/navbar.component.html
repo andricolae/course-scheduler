@@ -15,6 +15,11 @@
                 class="px-4 py-2 bg-blue-900 hover:bg-blue-300 text-white font-medium rounded-lg transition duration-300">
             Scheduler
         </button>
+
+        <button (click)="navigateTo('/admin/logs')"
+                class="px-4 py-2 bg-blue-900 hover:bg-blue-300 text-white font-medium rounded-lg transition duration-300">
+            Logs
+        </button>
       }
 
       @if (!isAuthenticated) {

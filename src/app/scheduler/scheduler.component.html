@@ -7,7 +7,6 @@
   </div>
 
   <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-    <!-- Pending Courses Panel -->
     <div class="bg-white rounded-2xl shadow p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-blue-600">Pending Courses</h2>
@@ -65,7 +64,6 @@
       }
     </div>
 
-    <!-- Calendar Panel -->
     <div class="bg-white rounded-2xl shadow p-6 md:col-span-2">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-blue-600">
@@ -75,10 +73,6 @@
             Course Calendar
           }
         </h2>
-
-
-
-
 
         <div class="flex items-center gap-4 mb-2 text-xs">
           <div class="flex items-center">
@@ -90,10 +84,6 @@
             <span>Other Courses</span>
           </div>
         </div>
-
-
-
-
 
         @if (selectedCourse) {
           <button
@@ -157,14 +147,6 @@
                     {{ day.dayNumber }}
                   </span>
                 </div>
-
-                <!-- @for (session of getSessionsForDay(day.date); track session.id) {
-                  <div
-                    class="text-xs bg-blue-100 text-blue-800 p-1 mb-1 rounded truncate cursor-pointer session-item"
-                    (click)="editSession(session)">
-                    {{ session.startTime }} - {{ session.endTime }}
-                  </div>
-                } -->
 
                 @for (session of getSessionsForDay(day.date); track session.id) {
                   <div
