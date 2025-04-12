@@ -523,12 +523,13 @@ export class SchedulerComponent implements OnInit {
 
   saveCourseSchedule() {
     if (!this.selectedCourse || !this.selectedCourse.id || !this.selectedCourse.sessions) {
+      NotificationComponent.show('alert', 'No course or sessions to save');
       return;
     }
 
     this.spinner.show();
 
-    this.store.dispatch(CourseActions.updateCourse({ course: this.selectedCourse }));
+    //this.store.dispatch(CourseActions.updateCourse({ course: this.selectedCourse }));
 
     this.store.dispatch(SchedulerActions.submitSchedule({
       courseId: this.selectedCourse.id,

@@ -19,8 +19,6 @@ export class SchedulerEffects {
       mergeMap(() =>
         this.schedulerApiService.getPendingCourses().pipe(
           map(response => {
-            // Check the structure of your API response
-            // Assuming response has a courses property containing the array of courses
             const courses = response.courses || response.success ? response.courses : [];
             return SchedulerActions.loadPendingCoursesSuccess({ courses });
           }),
@@ -34,6 +32,24 @@ export class SchedulerEffects {
     )
   );
 
+  // submitSchedule$ = createEffect(() =>
+  //   this.actions$.pipe(
+  //     ofType(SchedulerActions.submitSchedule),
+  //     mergeMap(({ courseId, sessions }) =>
+  //       this.schedulerApiService.submitSchedule(courseId, sessions).pipe(
+  //         map((response) => {
+  //           NotificationComponent.show('success', 'Course schedule saved successfully');
+  //           return SchedulerActions.submitScheduleSuccess({ courseId });
+  //         }),
+  //         catchError(error => {
+  //           NotificationComponent.show('alert', `Failed to save schedule: ${error.message}`);
+  //           return of(SchedulerActions.submitScheduleFail({ error: error.message }));
+  //         })
+  //       )
+  //     )
+  //   )
+  // );
+
   submitSchedule$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SchedulerActions.submitSchedule),
@@ -44,13 +60,24 @@ export class SchedulerEffects {
             return SchedulerActions.submitScheduleSuccess({ courseId });
           }),
           catchError(error => {
-            NotificationComponent.show('alert', `Failed to save schedule: ${error.message}`);
-            return of(SchedulerActions.submitScheduleFail({ error: error.message }));
+            NotificationComponent.show('alert', `Failed to save schedule: ${error.message || 'Unknown error'}`);
+            return of(SchedulerActions.submitScheduleFail({
+              error: error.message || 'Unknown error occurred while saving schedule'
+            }));
           })
         )
       )
     )
   );
+
+  // reloadCoursesAfterSubmit$ = createEffect(() =>
+  //   this.actions$.pipe(
+  //     ofType(SchedulerActions.submitScheduleSuccess),
+  //     map(() => {
+  //       return CourseActions.loadCourses();
+  //     })
+  //   )
+  // );
 
   checkScheduleConflicts$ = createEffect(() =>
     this.actions$.pipe(
