@@ -62,6 +62,29 @@
           }
         </ul>
       }
+
+      <!-- Teacher Schedule Overlap Setting -->
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">Scheduling Settings</h3>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Allow teacher schedule overlap</p>
+            <p class="text-xs text-gray-500">When enabled, a teacher can have overlapping sessions</p>
+          </div>
+          <button
+            (click)="toggleScheduleOverlapSetting()"
+            class="relative inline-flex items-center h-6 rounded-full w-11"
+            [class.bg-blue-600]="allowTeacherScheduleOverlap"
+            [class.bg-gray-300]="!allowTeacherScheduleOverlap">
+            <span
+              class="absolute transform transition-transform duration-200 ease-in-out h-5 w-5 rounded-full bg-white shadow"
+              [class.translate-x-5]="allowTeacherScheduleOverlap"
+              [class.translate-x-1]="!allowTeacherScheduleOverlap">
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="bg-white rounded-2xl shadow p-6 md:col-span-2">
@@ -230,7 +253,8 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
           <input
             type="date"
-            [(ngModel)]="newSession.date"
+            [(ngModel)]="newSessionDateString"
+            (ngModelChange)="updateSessionPreview()"
             class="w-full p-2 border rounded-lg"
           />
         </div>
@@ -300,9 +324,25 @@
             <p class="text-sm text-red-800 font-medium mb-1">Scheduling Conflicts Detected:</p>
             <ul class="text-xs text-red-700 list-disc list-inside">
               @for (conflict of sessionConflicts; track conflict.id) {
-                <li>{{ formatDate(conflict.date) }} ({{ conflict.startTime }}-{{ conflict.endTime }}) - {{ conflict.courseName }}</li>
+                <li>
+                  {{ formatDate(conflict.date) }} ({{ conflict.startTime }}-{{ conflict.endTime }}) - {{ conflict.courseName }}
+                  @if (isConflictWithSameTeacher(conflict) && allowTeacherScheduleOverlap) {
+                    <span class="text-orange-500 ml-1">(Same teacher overlap is allowed)</span>
+                  }
+                </li>
               }
             </ul>
+          </div>
+        }
+
+        @if (allowTeacherScheduleOverlap) {
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm text-blue-800">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Teacher schedule overlap is enabled. Same teacher can have overlapping sessions.
+            </p>
           </div>
         }
       </div>

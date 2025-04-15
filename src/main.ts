@@ -1,3 +1,4 @@
+import { appConfig } from './app/app.config';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { bootstrapApplication, provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
@@ -21,6 +22,8 @@ import { AuthInterceptor } from './app/state/auth/auth.interceptors';
 import { logReducer } from './app/state/logs/log.reducer';
 import { LogEffects } from './app/state/logs/log.effects';
 import { tap } from 'rxjs';
+import { appConfigReducer } from './app/state/app-config/app-config.reducer';
+import { AppConfigEffects } from './app/state/app-config/app-config.effects';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -53,13 +56,15 @@ bootstrapApplication(AppComponent, {
       courses: coursesReducer,
       auth: authReducer,
       scheduler: schedulerReducer,
-      log: logReducer
+      log: logReducer,
+      appConfig: appConfigReducer
     }),
     provideEffects([
       CoursesEffects,
       AuthEffects,
       SchedulerEffects,
-      LogEffects
+      LogEffects,
+      AppConfigEffects
     ]),
     provideStoreDevtools({
       maxAge: 25,
