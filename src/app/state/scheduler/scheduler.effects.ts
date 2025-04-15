@@ -32,24 +32,6 @@ export class SchedulerEffects {
     )
   );
 
-  // submitSchedule$ = createEffect(() =>
-  //   this.actions$.pipe(
-  //     ofType(SchedulerActions.submitSchedule),
-  //     mergeMap(({ courseId, sessions }) =>
-  //       this.schedulerApiService.submitSchedule(courseId, sessions).pipe(
-  //         map((response) => {
-  //           NotificationComponent.show('success', 'Course schedule saved successfully');
-  //           return SchedulerActions.submitScheduleSuccess({ courseId });
-  //         }),
-  //         catchError(error => {
-  //           NotificationComponent.show('alert', `Failed to save schedule: ${error.message}`);
-  //           return of(SchedulerActions.submitScheduleFail({ error: error.message }));
-  //         })
-  //       )
-  //     )
-  //   )
-  // );
-
   submitSchedule$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SchedulerActions.submitSchedule),

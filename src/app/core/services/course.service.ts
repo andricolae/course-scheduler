@@ -14,7 +14,6 @@ export class CourseService {
     this.coursesCollection = collection(this.firestore, 'courses');
   }
 
-
 getCourses(): Observable<Course[]> {
   return collectionData(this.coursesCollection, { idField: 'id' }).pipe(
     map(courses => {

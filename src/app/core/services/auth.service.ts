@@ -106,19 +106,19 @@ export class AuthService {
     this.router.navigate(['/auth']);
   }
 
-  private handleAuthentification(email: string, userId: string, token: string, expiresIn: number) {
-    const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
-    const user = new User(email, userId, token, expirationDate, 'Student');
-    this.user.next(user);
-    this.logAuthAction('USER_AUTHENTICATED', { email, userId, role: user.role });
-    localStorage.setItem('userData', JSON.stringify({
-        email: user.email,
-        id: user.id,
-        _token: user.token,
-        _tokenExpirationDate: expirationDate.toISOString(),
-        role: user.role
-    }));
-  }
+  // private handleAuthentification(email: string, userId: string, token: string, expiresIn: number) {
+  //   const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
+  //   const user = new User(email, userId, token, expirationDate, 'Student');
+  //   this.user.next(user);
+  //   this.logAuthAction('USER_AUTHENTICATED', { email, userId, role: user.role });
+  //   localStorage.setItem('userData', JSON.stringify({
+  //       email: user.email,
+  //       id: user.id,
+  //       _token: user.token,
+  //       _tokenExpirationDate: expirationDate.toISOString(),
+  //       role: user.role
+  //   }));
+  // }
 
   login(email: string, password: string): Observable<User> {
     this.logAuthAction('LOGIN_ATTEMPT', { email });

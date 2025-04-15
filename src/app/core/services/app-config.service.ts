@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Firestore, doc, getDoc, setDoc, collection } from '@angular/fire/firestore';
+import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 import { from, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { AppConfig } from '../user.model';
@@ -28,22 +28,17 @@ export class AppConfigService {
           this.logConfigAction('CONFIG_LOADED');
           return docSnap.data() as AppConfig;
         } else {
-          // If no config exists yet, create a default one
           const defaultConfig: AppConfig = {
             allowTeacherScheduleOverlap: false
           };
-
           this.logConfigAction('DEFAULT_CONFIG_CREATED');
-          // Save the default config
           this.saveAppConfig(defaultConfig).subscribe();
-
           return defaultConfig;
         }
       }),
       catchError(error => {
         this.logConfigAction('CONFIG_LOAD_ERROR', { error: error.message });
         console.error('Error loading app config:', error);
-        // Return a default config on error
         return of({
           allowTeacherScheduleOverlap: false
         });
@@ -53,7 +48,6 @@ export class AppConfigService {
 
   saveAppConfig(config: AppConfig): Observable<void> {
     const configDocRef = doc(this.firestore, `${this.configCollection}/${this.configDocId}`);
-
     this.logConfigAction('CONFIG_SAVING', { config });
 
     return from(setDoc(configDocRef, config, { merge: true })).pipe(
