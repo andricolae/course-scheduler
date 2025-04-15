@@ -1,3 +1,4 @@
+import { loadAppConfig } from './state/app-config/app-config.actions';
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from "./core/navbar/navbar.component";
@@ -8,6 +9,7 @@ import { LoggingService } from './core/services/logging.service';
 import { Store } from '@ngrx/store';
 import { LogCategory } from './core/log.model';
 import * as LogActions from './state/logs/log.actions';
+import * as AppConfigActions from './state/app-config/app-config.actions';
 
 @Component({
   selector: 'app-root',
@@ -42,6 +44,8 @@ export class AppComponent {
     this.navigationInterceptor;
 
     this.setupErrorLogging();
+
+    this.store!.dispatch(AppConfigActions.loadAppConfig());
   }
 
   private setupErrorLogging() {

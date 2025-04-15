@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,11 +15,13 @@ import { LogCategory } from '../core/log.model';
 
 import { Course, CourseSession } from '../core/user.model';
 import * as CourseActions from '../state/courses/course.actions';
+import * as AppConfigActions from '../state/app-config/app-config.actions';
 import * as SchedulerActions from '../state/scheduler/scheduler.actions';
 import { selectAllCourses } from '../state/courses/course.selector';
 import { selectPendingCourses, selectSchedulerLoading, selectScheduleConflicts } from '../state/scheduler/scheduler.selectors';
 
 import { SchedulerApiService } from '../core/services/scheduler-api.service';
+import { selectAllowTeacherScheduleOverlap } from '../state/app-config/app-config.selectors';
 
 interface CalendarDay {
   date: Date;
@@ -34,12 +36,16 @@ interface SessionConflict {
   startTime: string;
   endTime: string;
   courseName: string;
+  teacherId?: string;
+  teacher: string;
 }
 
 interface SessionWithCourse extends CourseSession {
   courseName: string;
   courseId: string;
   isSelectedCourse: boolean;
+  teacher: string;
+  teacherId?: string;
 }
 
 @Component({
@@ -61,6 +67,8 @@ export class SchedulerComponent implements OnInit {
   pendingCourses$: Observable<Course[]>;
   schedulerLoading$: Observable<boolean>;
   conflicts$: Observable<any[]>;
+  allowTeacherScheduleOverlap$: Observable<boolean>;
+  allowTeacherScheduleOverlap = false;
 
   allCourses: Course[] = [];
   pendingCourses: Course[] = [];
@@ -83,18 +91,20 @@ export class SchedulerComponent implements OnInit {
   isRecurring = false;
   recurrencePattern: 'weekly' | 'biweekly' | 'monthly' = 'weekly';
   recurrenceCount = 4;
-
+  newSessionDateString: string = '';
   sessionConflicts: SessionConflict[] = [];
   private store = inject(Store, { optional: true });
 
   constructor(
     private spinner: SpinnerService,
-    private schedulerApiService: SchedulerApiService
+    private schedulerApiService: SchedulerApiService,
+    private cdRef: ChangeDetectorRef
   ) {
     this.courses$ = this.store!.select(selectAllCourses);
     this.pendingCourses$ = this.store!.select(selectPendingCourses);
     this.schedulerLoading$ = this.store!.select(selectSchedulerLoading);
     this.conflicts$ = this.store!.select(selectScheduleConflicts);
+    this.allowTeacherScheduleOverlap$ = this.store!.select(selectAllowTeacherScheduleOverlap);
   }
 
   private logSchedulerAction(action: string, details?: any): void {
@@ -121,11 +131,31 @@ export class SchedulerComponent implements OnInit {
     this.loadData();
     this.generateCalendar();
     this.startPolling();
+
+    this.store!.dispatch(AppConfigActions.loadAppConfig());
+
+    this.allowTeacherScheduleOverlap$.subscribe(allowOverlap => {
+      this.allowTeacherScheduleOverlap = allowOverlap;
+      this.logSchedulerAction('SCHEDULE_OVERLAP_SETTING_CHANGED', { allowOverlap });
+
+      if (this.isAddSessionModalOpen) {
+        this.checkForConflicts();
+      }
+    });
   }
 
   ngOnDestroy() {
     this.stopPolling();
     this.logSchedulerAction('SCHEDULER_DESTROYED');
+  }
+
+  formatDateForInput(date: Date): string {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
   loadData() {
@@ -142,7 +172,6 @@ export class SchedulerComponent implements OnInit {
       this.allCourses = courses;
       this.generateCalendar();
       this.logSchedulerAction('COURSES_LOADED', { count: courses.length });
-
     });
 
     this.pendingCourses$.subscribe(pendingCourses => {
@@ -162,6 +191,12 @@ export class SchedulerComponent implements OnInit {
     });
   }
 
+  toggleScheduleOverlapSetting() {
+    this.store!.dispatch(AppConfigActions.toggleScheduleOverlapSetting({
+      allowOverlap: !this.allowTeacherScheduleOverlap
+    }));
+  }
+
   hasUnscheduledSessions(course: Course): boolean {
     return false;
   }
@@ -172,11 +207,10 @@ export class SchedulerComponent implements OnInit {
   }
 
   generateCalendar() {
+    const newCalendarDays: CalendarDay[] = [];
     const year = this.currentMonth.getFullYear();
     const month = this.currentMonth.getMonth();
-
     const firstDay = new Date(year, month, 1);
-
     const lastDay = new Date(year, month + 1, 0);
 
     const startDay = new Date(firstDay);
@@ -190,7 +224,6 @@ export class SchedulerComponent implements OnInit {
     for (let i = 0; i < 42; i++) {
       const currentDate = new Date(startDay);
       currentDate.setDate(startDay.getDate() + i);
-
       const isCurrentMonth = currentDate.getMonth() === month;
 
       this.calendarDays.push({
@@ -245,7 +278,9 @@ export class SchedulerComponent implements OnInit {
             ...session,
             courseName: course.name,
             courseId: course.id || '',
-            isSelectedCourse: this.selectedCourse ? course.id === this.selectedCourse.id : false
+            isSelectedCourse: this.selectedCourse ? course.id === this.selectedCourse.id : false,
+            teacher: course.teacher,
+            teacherId: course.teacherId
           });
         }
       });
@@ -274,7 +309,6 @@ export class SchedulerComponent implements OnInit {
 
     const courseName = session.courseName || 'Unknown Course';
     const message = `Can't access ${courseName} course's session because it is not selected`;
-
     NotificationComponent.show('alert', message, 5000);
   }
 
@@ -282,12 +316,20 @@ export class SchedulerComponent implements OnInit {
     if (!this.selectedCourse || !this.selectedCourse.sessions) {
       return [];
     }
-
     return [...this.selectedCourse.sessions].sort((a, b) => {
       const dateA = new Date(a.date);
       const dateB = new Date(b.date);
       return dateA.getTime() - dateB.getTime();
     });
+  }
+
+  isConflictWithSameTeacher(conflict: SessionConflict): boolean {
+    if (!this.selectedCourse || !conflict) return false;
+
+    if (this.selectedCourse.teacherId && conflict.teacherId) {
+      return this.selectedCourse.teacherId === conflict.teacherId;
+    }
+    return this.selectedCourse.teacher === conflict.teacher;
   }
 
   openAddSessionModal() {
@@ -305,6 +347,8 @@ export class SchedulerComponent implements OnInit {
       endTime: defaultEndTime
     };
 
+    this.newSessionDateString = this.formatDateForInput(defaultDate);
+
     this.isRecurring = false;
     this.recurrencePattern = 'weekly';
     this.recurrenceCount = 4;
@@ -318,17 +362,15 @@ export class SchedulerComponent implements OnInit {
     this.isAddSessionModalOpen = true;
   }
 
-  closeAddSessionModal() {
-    this.logSchedulerAction('SESSION_MODAL_CLOSED');
-    this.isAddSessionModalOpen = false;
-  }
-
   editSession(session: CourseSession) {
     this.editingSessionId = session.id;
     this.newSession = {
       ...session,
       date: new Date(session.date)
     };
+
+    this.newSessionDateString = this.formatDateForInput(new Date(session.date));
+
     this.isRecurring = false;
     this.sessionConflicts = [];
 
@@ -341,6 +383,7 @@ export class SchedulerComponent implements OnInit {
 
     this.checkForConflicts();
     this.isAddSessionModalOpen = true;
+    this.generateCalendar();
   }
 
   async deleteSession(session: CourseSession) {
@@ -366,7 +409,6 @@ export class SchedulerComponent implements OnInit {
         courseId: this.selectedCourse.id
       });
 
-      this.store!.dispatch(CourseActions.updateCourse({ course: updatedCourse }));
       NotificationComponent.show('success', 'Session deleted successfully');
     } else {
       this.logSchedulerAction('DELETE_SESSION_CANCELLED', {
@@ -377,19 +419,20 @@ export class SchedulerComponent implements OnInit {
   }
 
   checkForConflicts() {
-    if (!this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
+    if (!this.selectedCourse || !this.newSession.date || !this.newSession.startTime || !this.newSession.endTime) {
       return;
     }
 
     this.sessionConflicts = [];
-
     const sessionDate = new Date(this.newSession.date);
+    sessionDate.setHours(0, 0, 0, 0);
     const sessionDay = sessionDate.getDate();
     const sessionMonth = sessionDate.getMonth();
     const sessionYear = sessionDate.getFullYear();
-
     const startMinutes = this.timeToMinutes(this.newSession.startTime);
     const endMinutes = this.timeToMinutes(this.newSession.endTime);
+    const currentTeacherId = this.selectedCourse.teacherId;
+    const currentTeacher = this.selectedCourse.teacher;
 
     this.allCourses.forEach(course => {
       if (!course.sessions) return;
@@ -400,25 +443,39 @@ export class SchedulerComponent implements OnInit {
         }
 
         const existingDate = new Date(session.date);
+        existingDate.setHours(0, 0, 0, 0);
 
-        if (existingDate.getDate() === sessionDay &&
-          existingDate.getMonth() === sessionMonth &&
-          existingDate.getFullYear() === sessionYear) {
+        const existingDay = existingDate.getDate();
+        const existingMonth = existingDate.getMonth();
+        const existingYear = existingDate.getFullYear();
+
+        if (existingDay === sessionDay &&
+          existingMonth === sessionMonth &&
+          existingYear === sessionYear) {
 
           const existingStart = this.timeToMinutes(session.startTime);
           const existingEnd = this.timeToMinutes(session.endTime);
 
-          if ((startMinutes >= existingStart && startMinutes < existingEnd) ||
+          const hasTimeOverlap = (startMinutes >= existingStart && startMinutes < existingEnd) ||
             (endMinutes > existingStart && endMinutes <= existingEnd) ||
-            (startMinutes <= existingStart && endMinutes >= existingEnd)) {
+            (startMinutes <= existingStart && endMinutes >= existingEnd);
 
-            this.sessionConflicts.push({
-              id: session.id,
-              date: existingDate,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              courseName: course.name
-            });
+          if (hasTimeOverlap) {
+            const isSameTeacher = currentTeacherId && course.teacherId ?
+              currentTeacherId === course.teacherId :
+              currentTeacher === course.teacher;
+
+            if (isSameTeacher && !this.allowTeacherScheduleOverlap) {
+              this.sessionConflicts.push({
+                id: session.id || '',
+                date: existingDate,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                courseName: course.name,
+                teacher: course.teacher,
+                teacherId: course.teacherId
+              });
+            }
           }
         }
       });
@@ -433,8 +490,11 @@ export class SchedulerComponent implements OnInit {
         conflicts: this.sessionConflicts.map(c => ({
           id: c.id,
           courseName: c.courseName,
-          time: `${c.startTime}-${c.endTime}`
-        }))
+          time: `${c.startTime}-${c.endTime}`,
+          teacher: c.teacher,
+          date: new Date(c.date).toLocaleDateString()
+        })),
+        allowTeacherOverlap: this.allowTeacherScheduleOverlap
       });
     }
   }
@@ -457,8 +517,29 @@ export class SchedulerComponent implements OnInit {
     if (endMinutes <= startMinutes) {
       return false;
     }
-
     return true;
+  }
+
+  updateSessionPreview() {
+    if (this.newSessionDateString) {
+      const dateParts = this.newSessionDateString.split('-');
+      if (dateParts.length === 3) {
+        const year = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1;
+        const day = parseInt(dateParts[2], 10);
+
+        const newDate = new Date(year, month, day);
+        newDate.setHours(0, 0, 0, 0);
+
+        this.newSession.date = newDate;
+
+        console.log('Date converted from:', this.newSessionDateString, 'to:', this.newSession.date.toISOString());
+      }
+    }
+
+    this.checkForConflicts();
+    this.generateCalendar();
+    this.cdRef.detectChanges();
   }
 
   saveSession() {
@@ -468,17 +549,19 @@ export class SchedulerComponent implements OnInit {
 
     this.checkForConflicts();
 
-    if (this.sessionConflicts.length > 0) {
+    if (this.sessionConflicts.length > 0 && !this.allowTeacherScheduleOverlap) {
       this.logSchedulerAction('SESSION_SAVE_FAILED_CONFLICTS', {
         courseId: this.selectedCourse.id,
         sessionId: this.editingSessionId || this.newSession.id,
-        conflictsCount: this.sessionConflicts.length
+        conflictsCount: this.sessionConflicts.length,
+        allowTeacherOverlap: this.allowTeacherScheduleOverlap
       });
 
       NotificationComponent.show('alert', 'Cannot save session due to scheduling conflicts');
       return;
     }
 
+    this.spinner.show();
     const updatedCourse = JSON.parse(JSON.stringify(this.selectedCourse));
 
     if (!updatedCourse.sessions) {
@@ -529,7 +612,7 @@ export class SchedulerComponent implements OnInit {
         updatedCourse.sessions.push({
           ...this.newSession
         });
-          this.logSchedulerAction('SESSION_ADDED', {
+        this.logSchedulerAction('SESSION_ADDED', {
           courseId: this.selectedCourse.id,
           sessionId: this.newSession.id,
           date: new Date(this.newSession.date).toISOString().split('T')[0],
@@ -542,14 +625,21 @@ export class SchedulerComponent implements OnInit {
 
     this.selectedCourse = updatedCourse;
 
-    const courseIndex = this.allCourses.findIndex(c => c.id === updatedCourse.id);
-    if (courseIndex !== -1) {
-      this.allCourses[courseIndex] = updatedCourse;
-    }
-
-    this.closeAddSessionModal();
+    this.allCourses = this.allCourses.map(course =>
+      course.id === updatedCourse.id ? updatedCourse : course
+    );
 
     this.generateCalendar();
+    this.spinner.hide();
+    this.closeAddSessionModal();
+    this.cdRef.detectChanges();
+  }
+
+  closeAddSessionModal() {
+    this.logSchedulerAction('SESSION_MODAL_CLOSED');
+    this.isAddSessionModalOpen = false;
+    this.generateCalendar();
+    this.cdRef.detectChanges();
   }
 
   generateRecurringDates(startDate: Date, pattern: string, count: number): Date[] {
@@ -569,10 +659,8 @@ export class SchedulerComponent implements OnInit {
           nextDate.setMonth(startDate.getMonth() + i);
           break;
       }
-
       dates.push(nextDate);
     }
-
     return dates;
   }
 
@@ -625,7 +713,6 @@ export class SchedulerComponent implements OnInit {
     }, 60000);
   }
 
-
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
@@ -633,13 +720,11 @@ export class SchedulerComponent implements OnInit {
     }
   }
 
-
   checkForNewPendingCourses() {
     this.lastPolled = new Date();
     this.logSchedulerAction('POLLING_CHECK', { timestamp: this.lastPolled.toISOString() });
     this.store!.dispatch(SchedulerActions.loadPendingCourses());
   }
-
 
   togglePolling() {
     this.pollingEnabled = !this.pollingEnabled;

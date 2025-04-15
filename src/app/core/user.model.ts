@@ -51,3 +51,7 @@ export interface UserModel {
   fullName: string;
   role: string;
 }
+
+export interface AppConfig {
+  allowTeacherScheduleOverlap: boolean;
+}
